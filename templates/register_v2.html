@@ -1,0 +1,74 @@
+{% extends 'base_v2.html' %}
+{% block content %}
+
+<div class="min-h-[80vh] px-4 flex flex-col justify-center">
+  <div class="card max-w-md mx-auto w-full">
+    <div class="text-center mb-8">
+      <h2 class="text-2xl font-bold mb-2">Crée ton compte</h2>
+      <p class="text-gray-600 text-sm">Rejoins IUT Bets et commence à parier sur tes événements préférés</p>
+    </div>
+
+    {% if error %}
+    <div class="bg-red-50 text-red-600 p-4 rounded-lg mb-6 text-sm">
+      <div class="flex items-center gap-2">
+        <i class="fas fa-exclamation-circle"></i>
+        <span>{{ error }}</span>
+      </div>
+    </div>
+    {% endif %}
+
+    <form method="post" class="space-y-4">
+      <div class="form-group">
+        <label class="form-label">Choisis ton nom d'utilisateur</label>
+        <div class="relative">
+          <i class="fas fa-user absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+          <input name="username" 
+                 required 
+                 class="form-input pl-10" 
+                 placeholder="Ex: john_doe"
+                 pattern="[a-zA-Z0-9_]{3,}"
+                 title="Au moins 3 caractères, lettres, chiffres et _ uniquement">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Crée un mot de passe sécurisé</label>
+        <div class="relative">
+          <i class="fas fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+          <input name="password" 
+                 type="password" 
+                 required 
+                 class="form-input pl-10"
+                 placeholder="Minimum 6 caractères"
+                 pattern=".{6,}"
+                 title="Au moins 6 caractères">
+        </div>
+        <p class="mt-1 text-xs text-gray-500">
+          <i class="fas fa-info-circle"></i>
+          Le mot de passe doit contenir au moins 6 caractères
+        </p>
+      </div>
+
+      <button class="btn gradient-primary w-full text-white" type="submit">
+        Créer mon compte
+        <i class="fas fa-arrow-right ml-2"></i>
+      </button>
+    </form>
+
+    <div class="mt-6 text-center">
+      <span class="text-sm text-gray-600">Déjà un compte ?</span>
+      <a href="{{ url_for('login') }}" class="text-indigo-600 font-medium">
+        Connecte-toi ici
+      </a>
+    </div>
+
+    <div class="mt-8 pt-6 border-t border-gray-100">
+      <div class="text-xs text-gray-500 space-y-2">
+        <p>En créant un compte, tu acceptes nos conditions d'utilisation et notre politique de confidentialité.</p>
+        <p><i class="fas fa-shield-alt text-indigo-600"></i> Tes informations sont sécurisées et ne seront jamais partagées.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

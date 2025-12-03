@@ -1,0 +1,133 @@
+{% extends 'base_v2.html' %}
+{% block content %}
+<div class="p-6">
+  <div class="max-w-4xl mx-auto">
+    <h1 class="text-2xl font-bold mb-6">Mon Portefeuille</h1>
+    
+    <div class="grid md:grid-cols-2 gap-6">
+      <!-- Solde actuel -->
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold mb-4">Solde Actuel</h2>
+        <div class="text-3xl font-bold text-indigo-600">{{ session.user.balance }}F</div>
+        <div class="mt-4 flex gap-3">
+          <a href="{{ url_for('deposit_page') }}" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+            Déposer
+          </a>
+          <button onclick="showWithdrawModal()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+            Retirer
+          </button>
+        </div>
+      </div>
+
+      <!-- Historique des transactions -->
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold mb-4">Historique</h2>
+        <div class="space-y-3">
+          {% for tx in transactions %}
+          <div class="p-3 border rounded {% if tx.amount > 0 %}bg-green-50{% else %}bg-red-50{% endif %}">
+            <div class="font-medium">
+              {% if tx.type == 'deposit' %}Dépôt
+              {% elif tx.type == 'withdrawal' %}Retrait
+              {% elif tx.type == 'bet' %}Mise
+              {% elif tx.type == 'bet_win' %}Gain
+              {% endif %}
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-gray-600 text-sm">{{ tx.created_at }}</span>
+              <span class="font-bold {% if tx.amount > 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                {% if tx.amount > 0 %}+{% endif %}{{ tx.amount }}F
+              </span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de retrait -->
+<div id="withdrawModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
+  <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+    <h2 class="text-xl font-bold mb-4">Retirer des fonds</h2>
+    
+    <form id="withdrawForm" onsubmit="submitWithdraw(event)">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">Opérateur</label>
+          <select name="operator" class="w-full p-2 border rounded" required>
+            <option value="orange">Orange Money</option>
+            <option value="mtn">MTN Mobile Money</option>
+          </select>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium mb-1">Numéro de téléphone</label>
+          <input type="tel" name="phone" pattern="[0-9]{9}" placeholder="6XXXXXXXX" 
+                 class="w-full p-2 border rounded" required>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium mb-1">Montant (min: 500F)</label>
+          <input type="number" name="amount" min="500" step="100" 
+                 class="w-full p-2 border rounded" required>
+        </div>
+
+        <div class="flex justify-end gap-3 mt-6">
+          <button type="button" onclick="hideWithdrawModal()" 
+                  class="px-4 py-2 border rounded hover:bg-gray-50">
+            Annuler
+          </button>
+          <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+            Confirmer
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function showWithdrawModal() {
+  document.getElementById('withdrawModal').classList.remove('hidden');
+}
+
+function hideWithdrawModal() {
+  document.getElementById('withdrawModal').classList.add('hidden');
+}
+
+async function submitWithdraw(e) {
+  e.preventDefault();
+  const form = e.target;
+  const data = {
+    operator: form.operator.value,
+    phone: form.phone.value,
+    amount: parseInt(form.amount.value)
+  };
+  
+  try {
+    const res = await fetch('/api/withdraw', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    
+    if (result.error) {
+      alert(result.error);
+      return;
+    }
+    
+    hideWithdrawModal();
+    location.reload(); // Recharger pour voir le nouveau solde
+  } catch(e) {
+    alert("Erreur lors du retrait. Réessayez plus tard.");
+  }
+}
+
+// Fermer le modal si on clique en dehors
+document.getElementById('withdrawModal').addEventListener('click', function(e) {
+  if (e.target === this) hideWithdrawModal();
+});
+</script>
+{% endblock %}

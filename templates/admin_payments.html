@@ -1,0 +1,22 @@
+{% extends 'base_v2.html' %}
+{% block content %}
+<div class="bg-white rounded p-6">
+  <h1 class="text-2xl font-bold">Paiements (sandbox)</h1>
+  <div class="mt-4">
+    <table class="w-full text-sm">
+      <thead><tr><th>User</th><th>Montant</th><th>Statut</th><th>Date</th><th>TxID</th></tr></thead>
+      <tbody>
+        {% for p in payments %}
+        <tr class="border-t">
+          <td>{{ p.username or '—' }}</td>
+          <td>{{ p.amount }}F</td>
+          <td>{{ p.status }}</td>
+          <td>{{ p.created_at }}</td>
+          <td>{{ p.provider_tx_id or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

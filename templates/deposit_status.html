@@ -1,0 +1,117 @@
+{% extends 'base_v2.html' %}
+{% block content %}
+
+<div class="min-h-[80vh] px-4 py-6">
+  <!-- Carte principale -->
+  <div class="card max-w-md mx-auto">
+    <!-- En-tête avec icône -->
+    <div class="text-center mb-6">
+      {% if info.status == 'FINISHED' %}
+      <div class="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+        <i class="fas fa-check text-3xl text-green-500"></i>
+      </div>
+      {% elif info.status == 'PENDING' %}
+      <div class="w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-4 animate-pulse">
+        <i class="fas fa-clock text-3xl text-yellow-500"></i>
+      </div>
+      {% else %}
+      <div class="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center mx-auto mb-4">
+        <i class="fas fa-receipt text-3xl text-indigo-500"></i>
+      </div>
+      {% endif %}
+
+      <h2 class="text-2xl font-bold">
+        {% if info.status == 'FINISHED' %}
+        Dépôt confirmé
+        {% elif info.status == 'PENDING' %}
+        En attente de confirmation
+        {% else %}
+        Statut du dépôt
+        {% endif %}
+      </h2>
+    </div>
+
+    <!-- Détails de la transaction -->
+    <div class="space-y-4">
+      <!-- ID de transaction -->
+      <div class="p-4 bg-gray-50 rounded-lg">
+        <div class="text-sm text-gray-500 mb-1">ID de transaction</div>
+        <div class="font-medium flex items-center gap-2">
+          {{ txid }}
+          <button onclick="navigator.clipboard.writeText('{{ txid }}')" 
+                  class="text-indigo-600 hover:text-indigo-700 transition-colors">
+            <i class="fas fa-copy"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Montant -->
+      <div class="p-4 bg-gray-50 rounded-lg">
+        <div class="text-sm text-gray-500 mb-1">Montant</div>
+        <div class="text-2xl font-bold text-indigo-600">
+          {{ info.amount }}F <span class="text-sm font-normal text-gray-500">({{ info.amount }} BTC)</span>
+        </div>
+      </div>
+
+      <!-- Statut -->
+      <div class="p-4 bg-gray-50 rounded-lg">
+        <div class="text-sm text-gray-500 mb-1">Statut</div>
+        <div class="flex items-center gap-2">
+          {% if info.status == 'FINISHED' %}
+          <span class="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-700">
+            <i class="fas fa-check-circle mr-1"></i>
+            Confirmé
+          </span>
+          {% elif info.status == 'PENDING' %}
+          <span class="inline-flex items-center px-3 py-1 rounded-full bg-yellow-100 text-yellow-700">
+            <i class="fas fa-clock mr-1"></i>
+            En attente
+          </span>
+          {% else %}
+          <span class="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-700">
+            {{ info.status }}
+          </span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="mt-6">
+      {% if info.status != 'FINISHED' %}
+        <div class="text-sm text-gray-600 mb-4">
+          <i class="fas fa-info-circle text-indigo-600"></i>
+          Votre paiement est en cours de traitement. Cette page se rafraîchira automatiquement.
+        </div>
+        
+        <!-- Bouton de simulation en mode sandbox -->
+        <form method="post" action="{{ url_for('webhook_pawapay') }}" class="mt-4">
+          <input type="hidden" name="externalId" value="{{ txid }}">
+          <input type="hidden" name="status" value="SUCCESSFUL">
+          <button class="btn gradient-success text-white w-full">
+            <i class="fas fa-check-circle mr-2"></i>
+            Simuler confirmation (sandbox)
+          </button>
+        </form>
+      {% else %}
+        <div class="text-center">
+          <a href="{{ url_for('index') }}" class="btn btn-primary">
+            <i class="fas fa-home mr-2"></i>
+            Retour à l'accueil
+          </a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if info.status != 'FINISHED' %}
+  <script>
+    // Rafraîchit la page toutes les 5 secondes
+    setTimeout(() => {
+      window.location.reload();
+    }, 5000);
+  </script>
+  {% endif %}
+</div>
+
+{% endblock %}

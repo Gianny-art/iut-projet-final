@@ -1,0 +1,235 @@
+{% extends 'base_v2.html' %}
+{% block content %}
+
+<div class="min-h-[80vh] px-4 py-6">
+  <!-- Solde actuel -->
+  <div class="card-gradient rounded-2xl p-6 mb-6">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-white/80 text-sm">Solde actuel</p>
+        <h2 class="text-2xl font-bold text-white">{{ session['user']['balance'] }} <span class="text-yellow-300">BTC</span></h2>
+      </div>
+      <div class="w-12 h-12 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center">
+        <i class="fas fa-wallet text-white text-xl"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Formulaire de dépôt -->
+  <div class="card">
+    <div class="mb-6">
+      <h2 class="text-xl font-bold mb-2">Dépôt de fonds</h2>
+      <p class="text-sm text-gray-600">1 FCFA = 1 Betcoin (BTC). Montant minimum : 100 FCFA</p>
+    </div>
+
+    <form id="depositForm" class="space-y-6">
+      <!-- Numéro de téléphone -->
+      <div class="form-group">
+        <label class="form-label">Numéro de téléphone</label>
+        <div class="relative">
+          <i class="fas fa-phone absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+          <input type="tel" 
+                 id="phone" 
+                 name="phone" 
+                 class="form-input pl-10"
+                 placeholder="Ex: 699123456" 
+                 pattern="[6-9][0-9]{8}"
+                 title="Entrez un numéro de téléphone valide"
+                 required>
+        </div>
+      </div>
+
+      <!-- Moyen de paiement -->
+      <div class="form-group">
+        <label class="form-label">Choisissez votre moyen de paiement</label>
+        <div class="grid grid-cols-2 gap-4">
+          <label class="card touch-scale relative cursor-pointer border-2 border-transparent transition-all duration-200">
+            <input type="radio" 
+                   id="operator_orange" 
+                   name="operator" 
+                   value="ORANGE" 
+                   class="absolute opacity-0"
+                   required>
+            <div class="flex flex-col items-center p-4">
+              <img src="../static/uploads/Orange-Money-Logo.png" 
+                   alt="Orange Money" 
+                   class="h-12 mb-2">
+              <span class="text-sm font-medium">Orange Money</span>
+            </div>
+          </label>
+
+          <label class="card touch-scale relative cursor-pointer border-2 border-transparent transition-all duration-200">
+            <input type="radio" 
+                   id="operator_mtn" 
+                   name="operator" 
+                   value="MTN" 
+                   class="absolute opacity-0"
+                   required>
+            <div class="flex flex-col items-center p-4">
+              <img src="../static/uploads/28-280910_595-x-842-25-logo-de-mtn-money.png" 
+                   alt="MTN MoMo" 
+                   class="h-12 mb-2">
+              <span class="text-sm font-medium">MTN MoMo</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Montant -->
+      <div class="form-group">
+        <label class="form-label">Montant (FCFA)</label>
+        <div class="relative">
+          <i class="fas fa-money-bill absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+          <input type="number" 
+                 id="amount" 
+                 name="amount" 
+                 class="form-input pl-10"
+                 min="100" 
+                 value="100" 
+                 required>
+        </div>
+        <p class="mt-1 text-xs text-gray-500">
+          <i class="fas fa-info-circle"></i>
+          Montant minimum : 100 FCFA
+        </p>
+      </div>
+
+      <!-- Bouton de soumission -->
+      <button type="submit" class="btn gradient-primary text-white w-full">
+        <i class="fas fa-plus-circle mr-2"></i>
+        Déposer maintenant
+      </button>
+    </form>
+
+    <!-- Message de retour -->
+    <div id="depositMessage" class="mt-6"></div>
+  </div>
+
+  <!-- Section FAQ -->
+  <div class="mt-6 space-y-4">
+    <div class="card">
+      <h3 class="font-semibold mb-2 flex items-center gap-2">
+        <i class="fas fa-clock text-indigo-600"></i>
+        Combien de temps pour le traitement ?
+      </h3>
+      <p class="text-sm text-gray-600">Le dépôt est instantané. Les fonds sont disponibles dès la confirmation du paiement mobile.</p>
+    </div>
+
+    <div class="card">
+      <h3 class="font-semibold mb-2 flex items-center gap-2">
+        <i class="fas fa-shield-alt text-indigo-600"></i>
+        Est-ce sécurisé ?
+      </h3>
+      <p class="text-sm text-gray-600">Oui, nous utilisons des services de paiement mobile certifiés et sécurisés.</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Style pour les cartes de paiement */
+  input[type="radio"]:checked + div {
+    box-shadow: 0 0 0 2px #4f46e5, 0 0 0 4px white;
+  }
+  
+  /* Animation de loading */
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  .loading::after {
+    content: "";
+    position: absolute;
+    width: 1rem;
+    height: 1rem;
+    top: calc(50% - 0.5rem);
+    left: calc(50% - 0.5rem);
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+</style>
+
+<script>
+document.getElementById("depositForm").addEventListener("submit", async function(e) {
+  e.preventDefault();
+
+  const phone = document.getElementById("phone").value.trim();
+  const operator = document.querySelector('input[name="operator"]:checked')?.value;
+  const amount = parseInt(document.getElementById("amount").value);
+  const msg = document.getElementById("depositMessage");
+
+
+    // Désactive le bouton et ajoute l'animation de chargement
+    const submitBtn = this.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.classList.add('loading');
+    submitBtn.innerHTML = 'Traitement en cours...';
+    
+    try {
+      const response = await fetch("/api/deposit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, operator, amount })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        const tx = result.provider_tx_id || result.provider_tx_id || result.provider_txid || result.externalId || result.provider_tx_id;
+        
+        // Affiche le message de succès
+        msg.innerHTML = `
+          <div class="bg-green-50 text-green-700 p-4 rounded-lg flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+              <i class="fas fa-check text-green-500"></i>
+            </div>
+            <div>
+              <h4 class="font-medium">Paiement initié avec succès !</h4>
+              <p class="text-sm mt-1">${result.message || "Vous allez être redirigé vers la page de confirmation."}</p>
+            </div>
+          </div>
+        `;
+        
+        if (tx) {
+          setTimeout(() => {
+            window.location.href = `/deposit_status/${tx}`;
+          }, 1500);
+          return;
+        }
+      } else {
+        // Affiche le message d'erreur
+        msg.innerHTML = `
+          <div class="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+              <i class="fas fa-times text-red-500"></i>
+            </div>
+            <div>
+              <h4 class="font-medium">Erreur lors du paiement</h4>
+              <p class="text-sm mt-1">${result.error || "Veuillez vérifier vos informations et réessayer."}</p>
+            </div>
+          </div>
+        `;
+      }
+    } catch (err) {
+      // Affiche l'erreur de connexion
+      msg.innerHTML = `
+        <div class="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-exclamation-triangle text-red-500"></i>
+          </div>
+          <div>
+            <h4 class="font-medium">Erreur de connexion</h4>
+            <p class="text-sm mt-1">Le serveur est inaccessible. Veuillez réessayer plus tard.</p>
+          </div>
+        </div>
+      `;
+    } finally {
+      // Réactive le bouton et retire l'animation
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('loading');
+      submitBtn.innerHTML = '<i class="fas fa-plus-circle mr-2"></i>Déposer maintenant';
+    }
+});
+</script>
+{% endblock %}

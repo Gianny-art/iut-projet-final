@@ -1,0 +1,122 @@
+{% extends 'base_v2.html' %}
+{% block content %}
+<div class="bg-white rounded-lg p-6">
+  <h1 class="text-2xl font-bold">Matchs</h1>
+  <div class="mt-4 flex flex-col md:flex-row md:items-center gap-3">
+    <select id="filter-discipline" class="p-2 border rounded">
+      <option value="">Toutes les disciplines</option>
+      <option>Football</option>
+      <option>Basketball</option>
+      <option>Volley-ball</option>
+      <option>Tennis</option>
+      <option>Handball</option>
+    </select>
+    <select id="filter-competition" class="p-2 border rounded">
+      <option value="">Toutes les compétitions</option>
+      <option>Coupe du Directeur</option>
+      <option>Rally de Dschang</option>
+      <option>Coupe du Doyen</option>
+      <option>Jeux Universitaires</option>
+    </select>
+    <button onclick="loadMatches()" class="px-3 py-2 bg-indigo-600 text-white rounded">Filtrer</button>
+  </div>
+
+  <div id="matches-list" class="mt-6 grid md:grid-cols-2 gap-4"></div>
+</div>
+
+<script>
+async function loadMatches() {
+  const d = document.getElementById('filter-discipline').value;
+  const c = document.getElementById('filter-competition').value;
+  const params = new URLSearchParams();
+  if (d) params.append('discipline', d);
+  if (c) params.append('competition', c);
+  const res = await fetch('/api/matches?' + params.toString());
+  const matches = await res.json();
+  const list = document.getElementById('matches-list');
+  list.innerHTML = '';
+  for (const m of matches) {
+    const el = document.createElement('div');
+    el.className = 'p-4 bg-white rounded shadow flex justify-between items-center';
+    el.innerHTML = `
+      <div>
+        <div class="text-sm text-gray-500">${m.competition}</div>
+        <div class="text-sm text-indigo-600" data-match-time="${m.start_time}" data-match-disc="${m.discipline}">
+          Chargement du temps...
+        </div>
+        <div class="font-bold text-lg">${m.team_a} <span class="text-indigo-600">vs</span> ${m.team_b}</div>
+        <div class="text-sm text-gray-700 mt-2">${m.title}</div>
+        ${m.status === 'finished' ? `
+          <div class="text-sm mt-1">
+            <span class="font-bold">Score final:</span> ${m.score_a} - ${m.score_b}
+          </div>
+        ` : ''}
+      </div>
+      <div class="text-right">
+        <div class="text-sm">1: ${Number(m.odds_a).toFixed(2)}</div>
+        <div class="text-sm">X: ${Number(m.odds_x).toFixed(2)}</div>
+        <div class="text-sm">2: ${Number(m.odds_b).toFixed(2)}</div>
+        <a href="/match/${m.id}" class="mt-2 inline-block px-3 py-1 bg-indigo-600 text-white rounded">Suivre</a>
+      </div>
+    `;
+    list.appendChild(el);
+  }
+}
+
+function getQueryParam(name){
+  const params = new URLSearchParams(window.location.search);
+  return params.get(name) || '';
+}
+
+// Fonction pour calculer et afficher le temps restant
+function updateMatchTimes() {
+  const timeEls = document.querySelectorAll('[data-match-time]');
+  const durations = {
+    'Football': 90,
+    'Basketball': 40,
+    'Rally': 180,
+    'Tennis': 180,
+    'Handball': 60,
+    'Default': 120
+  };
+
+  timeEls.forEach(el => {
+    const startTime = new Date(el.dataset.matchTime);
+    const disc = el.dataset.matchDisc || 'Default';
+    const duration = durations[disc] || durations.Default;
+    const endTime = new Date(startTime.getTime() + duration * 60000);
+    const now = new Date();
+
+    if (now < startTime) {
+      const diff = startTime - now;
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(minutes / 60);
+      if (hours > 24) {
+        el.textContent = `Débute dans ${Math.floor(hours / 24)}j`;
+      } else if (hours > 0) {
+        el.textContent = `Débute dans ${hours}h`;
+      } else {
+        el.textContent = `Débute dans ${minutes}min`;
+      }
+    } else if (now < endTime) {
+      const diff = endTime - now;
+      const minutes = Math.floor(diff / 60000);
+      el.textContent = `Temps restant: ${minutes}min`;
+    } else {
+      el.textContent = 'Terminé';
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const d = getQueryParam('discipline');
+  const c = getQueryParam('competition');
+  if(d) document.getElementById('filter-discipline').value = d;
+  if(c) document.getElementById('filter-competition').value = c;
+  loadMatches().then(() => {
+    updateMatchTimes();
+    setInterval(updateMatchTimes, 60000); // update every minute
+  });
+});
+</script>
+{% endblock %}

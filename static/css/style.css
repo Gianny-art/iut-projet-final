@@ -1,0 +1,195 @@
+/* Reset et styles de base */
+:root {
+  --primary: #4f46e5;
+  --accent: #f4b400;
+  --bg: #f5f7fa;
+  --card: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: Poppins, system-ui, -apple-system, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: #1a1a1a;
+  min-height: 100vh;
+}
+
+li {
+  border: solid 1px wheat;
+  padding: 10px;
+  margin-bottom: 5px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.3s ease, width 0.3s ease, height 0.3s ease
+}
+li:hover{
+  background-color: rgb(199 210 254);
+  transform: scale(1.2);
+}
+strong{
+  color: rgb(79 70 229);
+}
+.slider-container {
+    width: 530px;
+    height: 200px;
+    overflow: hidden;
+    position: relative;
+    border: 2px solid #333;
+    border-radius: 8px;
+  }
+
+  .slides {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.5s ease-in-out;
+  }
+
+  .slide {
+    min-width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+  }
+
+  /* Boutons navigation */
+  .prev, .next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: rgba(0,0,0,0.5);
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+
+  .prev { left: 5px; }
+  .next { right: 5px; }
+/* style.css - basic tweaks for IUT Bets final */
+:root{
+  --primary: #0b61a4;
+  --accent: #f4b400;
+  --bg: #f5f7fa;
+  --card: #ffffff;
+}
+*{box-sizing:border-box;font-family:Poppins, Inter, Arial, sans-serif}
+body{margin:0;background:var(--bg);color:#1a1a1a}
+.shadow{box-shadow:0 8px 20px rgba(2,6,23,0.08)}
+a{color:inherit}
+img{max-width:100%;height:auto}
+/* Styles spécifiques mobiles */
+@media (max-width: 768px) {
+  .md\:col-span-2 {
+    grid-column: span 2;
+  }
+
+  /* Layout scrollable horizontal */
+  .scroll-x {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .scroll-x > * {
+    flex: 0 0 85%;
+    scroll-snap-align: start;
+  }
+
+  /* Navigation mobile moderne */
+  .nav-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .nav-icon:active {
+    color: white;
+  }
+
+  .nav-icon i {
+    font-size: 1.25rem;
+    margin-bottom: 0.25rem;
+  }
+
+  /* Cartes de match */
+  .match-card {
+    background: var(--card);
+    border-radius: 1rem;
+    padding: 1rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1rem;
+    transition: transform 0.2s;
+  }
+
+  .match-card:active {
+    transform: scale(0.98);
+  }
+
+  /* Cotes scrollables */
+  .odds-scroll {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding: 0.5rem;
+    scroll-snap-type: x mandatory;
+  }
+
+  .odds-item {
+    flex: 0 0 auto;
+    padding: 0.75rem 1.5rem;
+    background: var(--bg);
+    border-radius: 0.5rem;
+    scroll-snap-align: start;
+    transition: background-color 0.2s;
+  }
+
+  .odds-item:active,
+  .odds-item.selected {
+    background: var(--primary);
+    color: white;
+  }
+
+  /* Animations tactiles */
+  .touch-scale {
+    transition: transform 0.2s;
+  }
+
+  .touch-scale:active {
+    transform: scale(0.95);
+  }
+
+  /* Onglets */
+  .tabs {
+    display: flex;
+    overflow-x: auto;
+    gap: 1.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--card);
+    margin-bottom: 1rem;
+  }
+
+  .tab {
+    padding: 0.5rem 0;
+    color: #666;
+    white-space: nowrap;
+    transition: color 0.2s;
+  }
+
+  .tab.active {
+    color: var(--primary);
+    border-bottom: 2px solid var(--primary);
+  }
+}

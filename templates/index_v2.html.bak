@@ -1,0 +1,307 @@
+{% extends 'base_v2.html' %}
+{% block content %}
+
+<!-- Section Hero -->
+<section class="px-4 py-6">
+  <div class="card-gradient rounded-2xl p-6 relative overflow-hidden">
+    <div class="relative z-10">
+      <h1 class="text-2xl font-bold text-white mb-2">Pariez sur <span class="text-yellow-300">les événements de l'IUT</span></h1>
+      <p class="text-white/80 text-sm mb-4">Matchs amicaux, coupes internes, rallye Dschang et Jeux Universitaires — tout est ici.</p>
+      <div class="flex gap-3">
+        <a href="matches" class="btn bg-white text-indigo-600 font-medium text-sm">Voir les matchs</a>
+        {% if not session.get('user') %}
+        <a href="{{ url_for('register') }}" class="btn bg-white/20 text-white backdrop-blur-sm font-medium text-sm">S'inscrire</a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="absolute top-0 right-0 w-48 h-48 opacity-10">
+      <i class="fas fa-futbol text-9xl transform rotate-12"></i>
+    </div>
+  </div>
+</section>
+
+<!-- Hero Slider -->
+<section class="px-4">
+  <div class="relative rounded-xl overflow-hidden">
+    <div class="slides">
+      <div class="slide" style="background-image: url('../static/uploads/paris1.jpg');"></div>
+      <div class="slide" style="background-image: url('../static/uploads/R.jpg');"></div>
+      <div class="slide" style="background-image: url('../static/uploads/mbeumo.webp');"></div>
+      <div class="slide" style="background-image: url('../static/uploads/paris8.jpg');"></div>
+      <div class="slide" style="background-image: url('../static/uploads/ja.webp');"></div>
+      <div class="slide" style="background-image: url('../static/uploads/paris5.jpg');"></div>
+    </div>
+    <button class="prev absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/20 backdrop-blur-sm text-white flex items-center justify-center" onclick="prevSlide()">
+      <i class="fas fa-chevron-left"></i>
+    </button>
+    <button class="next absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/20 backdrop-blur-sm text-white flex items-center justify-center" onclick="nextSlide()">
+      <i class="fas fa-chevron-right"></i>
+    </button>
+  </div>
+</section>
+        <h1 class="text-3xl font-bold">Pariez sur <span class="text-indigo-600">les événements de l'IUT</span></h1>
+        <p class="mt-2 text-gray-600">Matchs amicaux, coupes internes, rallye Dschang et Jeux Universitaires — tout est ici.</p>
+        <div class="mt-4 flex gap-3">
+          <a href="matches" class="px-4 py-2 bg-indigo-600 text-white rounded shadow">Voir les matchs</a>
+          <a href="{{ url_for('register') }}" class="px-4 py-2 border border-indigo-600 text-indigo-600 rounded">S'inscrire</a>
+        </div>
+      </div>
+      <div class="slider-container">
+  <div class="slides">
+    <div class="slide" style="background-image: url('../static/uploads/paris1.jpg');"></div>
+    <div class="slide" style="background-image: url('../static/uploads/R.jpg');"></div>
+    <div class="slide" style="background-image: url('../static/uploads/mbeumo.webp');"></div>
+    <div class="slide" style="background-image: url('../static/uploads/paris8.jpg');"></div>
+    <div class="slide" style="background-image: url('../static/uploads/ja.webp');"></div>
+    <div class="slide" style="background-image: url('../static/uploads/paris5.jpg');"></div>
+    <div class="slide" style="background-image: url('../static/uploads/paris5.jpg');"></div>
+  </div>
+  <button class="prev" onclick="prevSlide()">‹</button>
+  <button class="next" onclick="nextSlide()">›</button>
+</div>
+    </div>
+
+    <!-- Featured matches carousel / list -->
+    <div class="mt-6">
+      <h2 class="text-xl font-semibold">Matchs en vedette</h2>
+      <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+        {% for m in featured %}
+        <div class="p-4 rounded-lg border flex items-center justify-between bg-gradient-to-r from-white to-indigo-50">
+          <div>
+            <div class="text-sm text-gray-500">{{ m['competition'] }} · {{ m['start_time'] }}</div>
+            <div class="text-lg font-bold">{{ m['team_a'] }} <span class="text-indigo-600">vs</span> {{ m['team_b'] }}</div>
+            <div class="mt-2 text-sm text-gray-700">{{ m['title'] }}</div>
+          </div>
+          <div class="text-right">
+            <div class="text-sm">Cotes</div>
+            <div class="mt-1 flex flex-col gap-1">
+              <div class="text-sm">1: {{ '%.2f'|format(m['odds_a']) }}</div>
+              <div class="text-sm">X: {{ '%.2f'|format(m['odds_x']) }}</div>
+              <div class="text-sm">2: {{ '%.2f'|format(m['odds_b']) }}</div>
+            </div>
+            <a href="{{ url_for('match_detail', match_id=m['id']) }}" class="mt-3 inline-block px-3 py-1 bg-indigo-600 text-white rounded">Suivre</a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+<br><br>
+    <!-- Activities / Sports -->
+    <div class="mt-6 grid md:grid-cols-3 gap-4">
+      <div class="p-4 bg-white rounded-lg shadow">
+        <h3 class="font-semibold"><b>Sports en vedette 🏀⚽</b></h3><br>
+        <ul class="mt-3 space-y-2 text-sm text-gray-700">
+          <a href="matches"><li><strong>Football ⚽</strong> — Le roi des sports à l'IUT. Dribbles, buts et ambiance de folie !</li></a><br>
+          <a href="matches"><li><strong>Volley-ball 🏐</strong> — Smashes puissants et réceptions acrobatiques.</li></a><br>
+          <a href="matches"><li><strong>Basketball 🏀</strong> — Dunks spectaculaires et paniers à trois points.</li></a><br>
+          <a href="matches"><li><strong>Tennis ⚾</strong> — Duels intenses sur le court. Chaque point compte.</li></a><br>
+        </ul>
+      </div>
+      <div class="p-4 bg-white rounded-lg shadow">
+        <h3 class="font-semibold"><b>Compétitions phares ⛳</b></h3><br>
+        <ol class="mt-3 space-y-3 text-sm text-gray-700">
+          <li><strong>1 — Coupe du Directeur</strong><br>Le trophée le plus convoité de l'IUT.</li><br>
+          <li><strong>2 — Rally de Dschang</strong><br>Une course d'endurance qui teste les limites.</li><br>
+          <li><strong>3 — Coupe du Doyen</strong><br>Chaque filière lutte pour la suprématie.</li><br>
+          <li><strong>4 — Jeux Universitaires</strong><br>L'événement qui unit toutes les universités.</li><br>
+        </ol>
+      </div>
+      <div class="p-4 bg-white rounded-lg shadow">
+        <h3 class="font-semibold">Suivi en direct 📣</h3>
+        <div class="mt-3 text-sm text-gray-700">
+          <p>Reste informé : scores en direct, classements et moments forts.</p>
+          <ul class="mt-2 space-y-2">
+            {% for m in matches[:5] %}
+            <li class="flex items-center justify-between">
+              <div>{{ m['team_a'] }} vs {{ m['team_b'] }} <span class="text-gray-400 text-xs">({{ m['competition'] }})</span></div>
+              <div class="text-indigo-600">{{ m['start_time'] }}</div>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right column: quick actions -->
+  <div class="space-y-4">
+    <div class="p-4 bg-indigo-50 rounded-lg">
+      <h3 class="font-semibold">Compte rapide</h3>
+      <p class="text-sm text-gray-700 mt-2">Connecte-toi pour parier et déposer des fonds.</p>
+      {% if not session.get('user') %}
+        <a href="{{ url_for('login') }}" class="block mt-3 px-4 py-2 bg-indigo-600 text-white rounded">Se connecter</a>
+        <a href="{{ url_for('register') }}" class="block mt-2 px-4 py-2 border border-indigo-600 text-indigo-600 rounded">S'inscrire</a>
+      {% else %}
+        <div class="mt-3 text-sm">Solde: <strong>{{ session['user']['balance'] }}F</strong></div>
+        <a href="{{ url_for('deposit_page') }}" class="mt-3 inline-block px-3 py-1 bg-yellow-300 rounded">Dépôt</a>
+      {% endif %}
+    </div>
+
+    <div class="p-4 bg-white rounded-lg shadow">
+      <h3 class="font-semibold">Classement des compétitions</h3>
+      <p class="text-sm text-gray-600 mt-2">Les dernières compétitions et résultats sont disponibles dans l'espace compétitions.</p>
+    </div>
+
+     <div class="p-4 bg-white rounded-lg shadow">
+      <h3 class="font-semibold">Comment ça marche</h3>
+      <p class="text-sm text-gray-600 mt-2"> Inscription <br>
+ Créez votre compte en quelques clics. C'est rapide, facile  <br> <br> Dépôt <br>
+ Chargez votre compte avec de la monnaie réelle convertie en Betcoin <br><br>  Pari <br>
+ Choisissez votre événement et placez vos paris. Suivez les 
+cotes en temps réel. Effectuer vos retraits en moins de 24h.
+ </p>
+    </div>
+
+    <div class="p-4 bg-white rounded-lg shadow">
+      <h3 class="font-semibold">FAQ</h3>
+      <p class="text-sm text-gray-600 mt-2">Est-ce légal de parier sur IUT Bet ? <br> <br>
+ Absolument ! IUT Bet converti la monnaie en jeton electronnique (betcoin). C'est 100% légal et approuvé par 
+l'administration <br><br> Puis-je parier depuis mon smartphone ? <br><br>
+ Bien sûr ! IUT Bet est disponible sur PC et mobile. Pariez n'importe où, n'importe quand sur le campus
+</p>
+    </div>
+<!-- Section Matchs en vedette -->
+<section class="py-6">
+  <div class="px-4">
+    <h2 class="text-lg font-semibold mb-4">Matchs en vedette</h2>
+  </div>
+  <div class="scroll-x hide-scrollbar">
+    {% for m in featured %}
+    <div class="card touch-scale" style="min-width: 280px;">
+      <div class="flex items-center justify-between mb-3">
+        <div class="text-xs text-gray-500">{{ m['competition'] }}</div>
+        <div class="status-badge status-scheduled">{{ m['start_time'] }}</div>
+      </div>
+      <div class="flex items-center justify-between mb-4">
+        <div class="font-medium">{{ m['team_a'] }}</div>
+        <div class="text-sm text-gray-400">VS</div>
+        <div class="font-medium">{{ m['team_b'] }}</div>
+      </div>
+      <div class="odds-container hide-scrollbar">
+        <button class="odds-button">
+          <div class="text-xs text-gray-500">1</div>
+          <div class="font-medium">{{ '%.2f'|format(m['odds_a']) }}</div>
+        </button>
+        <button class="odds-button">
+          <div class="text-xs text-gray-500">X</div>
+          <div class="font-medium">{{ '%.2f'|format(m['odds_x']) }}</div>
+        </button>
+        <button class="odds-button">
+          <div class="text-xs text-gray-500">2</div>
+          <div class="font-medium">{{ '%.2f'|format(m['odds_b']) }}</div>
+        </button>
+      </div>
+      <a href="{{ url_for('match_detail', match_id=m['id']) }}" class="btn btn-primary w-full mt-4">Parier maintenant</a>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- Section Sports -->
+<section class="py-6">
+  <div class="px-4">
+    <h2 class="text-lg font-semibold mb-4">Sports en vedette</h2>
+  </div>
+  <div class="scroll-x hide-scrollbar">
+    <div class="card touch-scale" style="min-width: 200px">
+      <i class="fas fa-futbol text-4xl text-indigo-600 mb-3"></i>
+      <h3 class="font-semibold mb-2">Football</h3>
+      <p class="text-sm text-gray-600">Le roi des sports à l'IUT. Dribbles, buts et ambiance de folie !</p>
+    </div>
+    <div class="card touch-scale" style="min-width: 200px">
+      <i class="fas fa-volleyball-ball text-4xl text-indigo-600 mb-3"></i>
+      <h3 class="font-semibold mb-2">Volley-ball</h3>
+      <p class="text-sm text-gray-600">Smashes puissants et réceptions acrobatiques.</p>
+    </div>
+    <div class="card touch-scale" style="min-width: 200px">
+      <i class="fas fa-basketball-ball text-4xl text-indigo-600 mb-3"></i>
+      <h3 class="font-semibold mb-2">Basketball</h3>
+      <p class="text-sm text-gray-600">Dunks spectaculaires et paniers à trois points.</p>
+    </div>
+    <div class="card touch-scale" style="min-width: 200px">
+      <i class="fas fa-table-tennis text-4xl text-indigo-600 mb-3"></i>
+      <h3 class="font-semibold mb-2">Tennis</h3>
+      <p class="text-sm text-gray-600">Duels intenses sur le court. Chaque point compte.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Section Guide -->
+<section class="py-6 px-4">
+  <h2 class="text-lg font-semibold mb-4">Comment ça marche</h2>
+  <div class="grid gap-4">
+    <div class="card">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
+          <i class="fas fa-user-plus text-indigo-600 text-xl"></i>
+        </div>
+        <div>
+          <h3 class="font-semibold mb-1">1. Inscription</h3>
+          <p class="text-sm text-gray-600">Créez votre compte en quelques clics. C'est rapide et facile.</p>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
+          <i class="fas fa-wallet text-indigo-600 text-xl"></i>
+        </div>
+        <div>
+          <h3 class="font-semibold mb-1">2. Dépôt</h3>
+          <p class="text-sm text-gray-600">Chargez votre compte en Betcoins pour commencer à parier.</p>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
+          <i class="fas fa-trophy text-indigo-600 text-xl"></i>
+        </div>
+        <div>
+          <h3 class="font-semibold mb-1">3. Pariez</h3>
+          <p class="text-sm text-gray-600">Choisissez vos événements et suivez les cotes en temps réel.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Section FAQ -->
+<section class="py-6 px-4">
+  <h2 class="text-lg font-semibold mb-4">FAQ</h2>
+  <div class="space-y-4">
+    <div class="card">
+      <h3 class="font-semibold mb-2">Est-ce légal de parier sur IUT Bet ?</h3>
+      <p class="text-sm text-gray-600">Absolument ! IUT Bet convertit la monnaie en jetons électroniques (Betcoins). C'est 100% légal et approuvé par l'administration.</p>
+    </div>
+    <div class="card">
+      <h3 class="font-semibold mb-2">Puis-je parier depuis mon smartphone ?</h3>
+      <p class="text-sm text-gray-600">Bien sûr ! IUT Bet est disponible sur PC et mobile. Pariez n'importe où, n'importe quand sur le campus.</p>
+    </div>
+    <div class="card">
+      <h3 class="font-semibold mb-2">Comment sont calculées les cotes ?</h3>
+      <p class="text-sm text-gray-600">Nos experts analysent chaque événement pour proposer des cotes justes et attractives.</p>
+    </div>
+  </div>
+</section>
+
+{% endblock %}
+
+  let currentIndex = 0;
+  const slides = document.querySelector('.slides');
+  const totalSlides = document.querySelectorAll('.slide').length;
+
+  function showSlide(index) {
+    if(index >= totalSlides) currentIndex = 0;
+    else if(index < 0) currentIndex = totalSlides - 1;
+    else currentIndex = index;
+    slides.style.transform = 'translateX(' + (-currentIndex * 300) + 'px)';
+  }
+
+  function nextSlide() { showSlide(currentIndex + 1); }
+  function prevSlide() { showSlide(currentIndex - 1); }
+
+  // Défilement automatique toutes les 3s
+  setInterval(nextSlide, 2000);
+</script>
+{% endblock %}

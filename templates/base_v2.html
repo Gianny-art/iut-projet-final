@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>IUT Bets — Plateforme officielle</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+  <!-- Icons pour la navigation -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans min-h-screen flex flex-col">
+  <!-- En-tête fixe -->
+  <header class="gradient-primary text-white shadow-lg fixed top-0 left-0 right-0 z-50">
+    <div class="flex items-center justify-between p-4">
+      <div class="text-xl font-extrabold tracking-tight">IUT <span class="text-yellow-300">BETS</span></div>
+      {% if session.get('user') %}
+        <div class="flex items-center gap-3">
+          <div class="px-4 py-1.5 bg-white/10 backdrop-blur-sm text-white rounded-full text-sm font-medium flex items-center gap-2">
+            <i class="fas fa-coins text-yellow-300"></i>
+            {{ session['user']['balance'] }}F
+          </div>
+          {% if session['user']['is_admin'] == 1 %}
+            <a href="{{ url_for('admin') }}" class="w-9 h-9 flex items-center justify-center bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-colors">
+              <i class="fas fa-shield-alt"></i>
+            </a>
+          {% endif %}
+        </div>
+      {% else %}
+        <a href="{{ url_for('login') }}" class="px-4 py-1.5 bg-white/10 backdrop-blur-sm text-white rounded-full text-sm font-medium hover:bg-white/20 transition-colors">
+          Connexion
+        </a>
+      {% endif %}
+    </div>
+    
+    <!-- Navigation principale -->
+    <nav class="flex justify-between px-6 py-3 bg-white/10 backdrop-blur-sm">
+      <a href="{{ url_for('index') }}" class="nav-icon">
+        <i class="fas fa-home"></i>
+        <span>Accueil</span>
+      </a>
+      <a href="{{ url_for('matches_page') }}" class="nav-icon">
+        <i class="fas fa-futbol"></i>
+        <span>Matchs</span>
+      </a>
+      <a href="{{ url_for('competitions') }}" class="nav-icon">
+        <i class="fas fa-trophy"></i>
+        <span>Compét.</span>
+      </a>
+      <a href="{{ url_for('deposit_page') }}" class="nav-icon">
+        <i class="fas fa-wallet"></i>
+        <span>Dépôt</span>
+      </a>
+      {% if session.get('user') %}
+      <a href="{{ url_for('wallet') }}" class="nav-icon">
+        <i class="fas fa-user"></i>
+        <span>Profil</span>
+      </a>
+      {% else %}
+      <a href="{{ url_for('login') }}" class="nav-icon">
+        <i class="fas fa-sign-in-alt"></i>
+        <span>Login</span>
+      </a>
+      {% endif %}
+    </nav>
+  </header>
+  <!-- Corps principal avec padding-top pour l'en-tête fixe -->
+  <main class="flex-1 pt-32 pb-20">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="fixed top-20 left-0 right-0 z-50 px-4">
+          {% for cat, msg in messages %}
+            <div class="px-4 py-2 rounded shadow-lg mb-2 animate-fade-in {{ 'bg-green-100 text-green-800' if cat=='success' else 'bg-red-100 text-red-800' }}">
+              {{ msg }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Style pour cacher la scrollbar mais garder la fonctionnalité -->
+  <style>
+    /* Style personnalisé pour les messages flash */
+    .flash-message {
+      position: fixed;
+      bottom: 5rem;
+      left: 1rem;
+      right: 1rem;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      z-index: 50;
+      animation: slideUp 0.3s ease-out;
+    }
+
+    .flash-message.success {
+      background: var(--success);
+      color: white;
+    }
+
+    .flash-message.error {
+      background: var(--danger);
+      color: white;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Active state pour la navigation */
+    .nav-icon[href="{{ request.path }}"] {
+      color: white;
+    }
+  </style>
+
+  <script>
+    // Fonction pour faire défiler doucement vers un élément
+    function smoothScroll(element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+
+    // Gestionnaire de défilement pour les conteneurs horizontaux
+    document.querySelectorAll('.scroll-snap-x').forEach(container => {
+      let isDown = false;
+      let startX;
+      let scrollLeft;
+
+      container.addEventListener('mousedown', (e) => {
+        isDown = true;
+        container.classList.add('active');
+        startX = e.pageX - container.offsetLeft;
+        scrollLeft = container.scrollLeft;
+      });
+
+      container.addEventListener('mouseleave', () => {
+        isDown = false;
+        container.classList.remove('active');
+      });
+
+      container.addEventListener('mouseup', () => {
+        isDown = false;
+        container.classList.remove('active');
+      });
+
+      container.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - container.offsetLeft;
+        const walk = (x - startX) * 2;
+        container.scrollLeft = scrollLeft - walk;
+      });
+    });
+  </script>
+
+  <!-- Scripts existants -->
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/live.js') }}"></script>
+</body>
+</html>

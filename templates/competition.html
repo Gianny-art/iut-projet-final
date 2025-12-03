@@ -1,0 +1,207 @@
+{% extends "base_v2.html" %}
+{% block content %}
+
+<!-- En-tête -->
+<section class="pt-6 px-4">
+  <div class="card-gradient rounded-2xl p-6 mb-6 relative overflow-hidden">
+    <div class="relative z-10">
+      <h1 class="text-2xl font-bold text-white mb-2">
+        <i class="fas fa-trophy text-yellow-300 mr-2"></i>
+        Compétitions de l'IUT
+      </h1>
+      <p class="text-white/80 text-sm">
+        Découvrez toutes les compétitions sportives de l'IUT. Soutenez vos équipes et suivez leurs performances en direct !
+      </p>
+    </div>
+    <div class="absolute -right-8 -bottom-8 opacity-10 text-[200px]">
+      <i class="fas fa-medal transform rotate-12"></i>
+    </div>
+  </div>
+</section>
+
+<!-- Liste des compétitions -->
+<section class="py-4 px-4">
+  <div class="grid gap-4">
+    <!-- Coupe du Directeur -->
+    <div class="card touch-scale">
+      <div class="relative aspect-video rounded-lg overflow-hidden mb-4">
+        <img src="../static/uploads/le-capitaine-de-Fovu-recevant-le-trophee-des-mains-du-PM.jpg" 
+             alt="Coupe du Directeur" 
+             class="w-full h-full object-cover">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+        <div class="absolute bottom-0 left-0 right-0 p-4">
+          <div class="inline-flex items-center px-2 py-1 rounded-full bg-yellow-400 text-xs font-medium text-black">
+            <i class="fas fa-star mr-1"></i>
+            En cours
+          </div>
+        </div>
+      </div>
+      <div class="p-4">
+        <h2 class="text-xl font-bold mb-2">Coupe du Directeur</h2>
+        <p class="text-sm text-gray-600 mb-4">Le trophée le plus convoité de l'IUT. Quelle équipe soulèvera la coupe cette année ?</p>
+        <div class="flex items-center gap-4">
+          <div class="text-sm text-gray-500">
+            <i class="fas fa-calendar-alt mr-1"></i>
+            2023-2024
+          </div>
+          <div class="text-sm text-gray-500">
+            <i class="fas fa-users mr-1"></i>
+            12 équipes
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Coupe du Doyen -->
+    <div class="card touch-scale">
+      <div class="relative aspect-video rounded-lg overflow-hidden mb-4">
+        <img src="../static/uploads/basketball.jpg" 
+             alt="Coupe du Doyen" 
+             class="w-full h-full object-cover">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+        <div class="absolute bottom-0 left-0 right-0 p-4">
+          <div class="inline-flex items-center px-2 py-1 rounded-full bg-green-400 text-xs font-medium text-black">
+            <i class="fas fa-basketball-ball mr-1"></i>
+            Basketball
+          </div>
+        </div>
+      </div>
+      <div class="p-4">
+        <h2 class="text-xl font-bold mb-2">Coupe du Doyen</h2>
+        <p class="text-sm text-gray-600 mb-4">Chaque filière lutte pour la suprématie. Quelle formation triomphera cette saison ?</p>
+        <div class="flex items-center gap-4">
+          <div class="text-sm text-gray-500">
+            <i class="fas fa-calendar-alt mr-1"></i>
+            Mars 2024
+          </div>
+          <div class="text-sm text-gray-500">
+            <i class="fas fa-university mr-1"></i>
+            Toutes filières
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rallye de Dschang -->
+    <div class="card touch-scale">
+      <div class="relative aspect-video rounded-lg overflow-hidden mb-4">
+        <img src="../static/uploads/ELEV8-SPORTS.webp" 
+             alt="Rallye de Dschang" 
+             class="w-full h-full object-cover">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+        <div class="absolute bottom-0 left-0 right-0 p-4">
+          <div class="inline-flex items-center px-2 py-1 rounded-full bg-blue-400 text-xs font-medium text-black">
+            <i class="fas fa-running mr-1"></i>
+            Course
+          </div>
+        </div>
+      </div>
+      <div class="p-4">
+        <h2 class="text-xl font-bold mb-2">Rallye de Dschang</h2>
+        <p class="text-sm text-gray-600 mb-4">Une course d'endurance qui teste les limites de nos athlètes. Prêt à relever le défi ?</p>
+        <div class="flex items-center gap-4">
+          <div class="text-sm text-gray-500">
+            <i class="fas fa-map-marker-alt mr-1"></i>
+            Campus & ville
+          </div>
+          <div class="text-sm text-gray-500">
+            <i class="fas fa-clock mr-1"></i>
+            Bientôt
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Jeux Universitaires -->
+    <div class="card touch-scale">
+      <div class="relative aspect-video rounded-lg overflow-hidden mb-4">
+        <img src="../static/uploads/rugby.jpeg" 
+             alt="Jeux Universitaires" 
+             class="w-full h-full object-cover">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+        <div class="absolute bottom-0 left-0 right-0 p-4">
+          <div class="inline-flex items-center px-2 py-1 rounded-full bg-purple-400 text-xs font-medium text-black">
+            <i class="fas fa-globe mr-1"></i>
+            National
+          </div>
+        </div>
+      </div>
+      <div class="p-4">
+        <h2 class="text-xl font-bold mb-2">Jeux Universitaires</h2>
+        <p class="text-sm text-gray-600 mb-4">L'événement qui unit toutes les universités. Vibrez au rythme de la compétition !</p>
+        <div class="flex items-center gap-4">
+          <div class="text-sm text-gray-500">
+            <i class="fas fa-trophy mr-1"></i>
+            Multi-sports
+          </div>
+          <div class="text-sm text-gray-500">
+            <i class="fas fa-calendar-alt mr-1"></i>
+            Avril 2024
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Coupe du Recteur -->
+    <div class="card touch-scale">
+      <div class="relative aspect-video rounded-lg overflow-hidden mb-4">
+        <img src="../static/uploads/volley.webp" 
+             alt="Coupe du Recteur" 
+             class="w-full h-full object-cover">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+        <div class="absolute bottom-0 left-0 right-0 p-4">
+          <div class="inline-flex items-center px-2 py-1 rounded-full bg-indigo-400 text-xs font-medium text-black">
+            <i class="fas fa-volleyball-ball mr-1"></i>
+            Volley-ball
+          </div>
+        </div>
+      </div>
+      <div class="p-4">
+        <h2 class="text-xl font-bold mb-2">Coupe du Recteur</h2>
+        <p class="text-sm text-gray-600 mb-4">Une compétition d'élite où les meilleures équipes s'affrontent pour la gloire académique.</p>
+        <div class="flex items-center gap-4">
+          <div class="text-sm text-gray-500">
+            <i class="fas fa-star mr-1"></i>
+            Prestige
+          </div>
+          <div class="text-sm text-gray-500">
+            <i class="fas fa-calendar-alt mr-1"></i>
+            Mai 2024
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Jeux Inter-filières -->
+    <div class="card touch-scale">
+      <div class="relative aspect-video rounded-lg overflow-hidden mb-4">
+        <img src="../static/uploads/télécharger (1).webp" 
+             alt="Jeux Inter-filières" 
+             class="w-full h-full object-cover">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+        <div class="absolute bottom-0 left-0 right-0 p-4">
+          <div class="inline-flex items-center px-2 py-1 rounded-full bg-red-400 text-xs font-medium text-black">
+            <i class="fas fa-fire mr-1"></i>
+            Populaire
+          </div>
+        </div>
+      </div>
+      <div class="p-4">
+        <h2 class="text-xl font-bold mb-2">Jeux Inter-filières</h2>
+        <p class="text-sm text-gray-600 mb-4">Les filières s'affrontent dans un esprit de camaraderie et de compétition. Que le meilleur gagne !</p>
+        <div class="flex items-center gap-4">
+          <div class="text-sm text-gray-500">
+            <i class="fas fa-users mr-1"></i>
+            Toutes filières
+          </div>
+          <div class="text-sm text-gray-500">
+            <i class="fas fa-calendar-alt mr-1"></i>
+            Février 2024
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

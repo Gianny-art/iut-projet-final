@@ -1,0 +1,58 @@
+{% extends 'base_v2.html' %}
+{% block content %}
+
+<div class="min-h-[80vh] px-4 flex flex-col justify-center">
+  <div class="card max-w-md mx-auto w-full">
+    <div class="text-center mb-8">
+      <h2 class="text-2xl font-bold mb-2">Bienvenue</h2>
+      <p class="text-gray-600 text-sm">Connecte-toi pour continuer sur IUT Bets</p>
+    </div>
+
+    {% if error %}
+    <div class="bg-red-50 text-red-600 p-4 rounded-lg mb-6 text-sm">
+      <div class="flex items-center gap-2">
+        <i class="fas fa-exclamation-circle"></i>
+        <span>{{ error }}</span>
+      </div>
+    </div>
+    {% endif %}
+
+    <form method="post" class="space-y-4">
+      <div class="form-group">
+        <label class="form-label">Nom d'utilisateur</label>
+        <div class="relative">
+          <i class="fas fa-user absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+          <input name="username" required 
+                 class="form-input pl-10" 
+                 placeholder="Entre ton nom d'utilisateur">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Mot de passe</label>
+        <div class="relative">
+          <i class="fas fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+          <input name="password" 
+                 type="password" 
+                 required 
+                 class="form-input pl-10"
+                 placeholder="Entre ton mot de passe">
+        </div>
+      </div>
+
+      <button class="btn btn-primary w-full" type="submit">
+        Se connecter
+        <i class="fas fa-arrow-right ml-2"></i>
+      </button>
+    </form>
+
+    <div class="mt-6 text-center">
+      <span class="text-sm text-gray-600">Pas encore de compte ?</span>
+      <a href="{{ url_for('register') }}" class="text-indigo-600 font-medium">
+        Inscris-toi maintenant
+      </a>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

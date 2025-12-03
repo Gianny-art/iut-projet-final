@@ -1,0 +1,140 @@
+{% extends 'base_v2.html' %}
+{% block content %}
+<div class="grid md:grid-cols-3 gap-6 bg-white rounded-lg p-6 shadow">
+  <div class="md:col-span-2">
+    <h2 class="text-2xl font-bold">{{ match['team_a'] }} <span class="text-indigo-600">vs</span> {{ match['team_b'] }}</h2>
+    <div class="text-sm text-gray-500 mt-1">{{ match['competition'] }}</div>
+    <div class="text-sm text-indigo-600" id="match-timer" 
+         data-match-time="{{ match['start_time'] }}" 
+         data-match-disc="{{ match['discipline'] }}">
+      Chargement du temps...
+    </div>
+    <div class="mt-4">
+      <div class="text-lg">Score: <strong id="live-score">{{ match['score_a'] }} - {{ match['score_b'] }}</strong></div>
+      {% if match['status'] == 'finished' %}
+        <div class="text-sm mt-1 font-bold">Match terminé</div>
+      {% endif %}
+    </div>
+    <div class="mt-6">
+      <h3 class="font-semibold">Détails du match</h3>
+      <p class="text-sm text-gray-700 mt-2">{{ match['title'] }}</p>
+    </div>
+    {% if session.user %}
+    <div class="mt-4" id="user-bets">
+      <!-- Les paris de l'utilisateur seront chargés ici -->
+    </div>
+    {% endif %}
+  </div>
+  <div class="p-4 bg-gray-50 rounded-lg">
+    <h3 class="font-semibold">Placer une mise</h3>
+    {% if match['status'] != 'finished' %}
+    <form id="betForm" class="mt-3">
+      <input type="hidden" name="match_id" value="{{ match['id'] }}">
+      <label class="text-sm">Choix</label>
+      <select name="choice" class="w-full p-2 rounded border">
+        <option value="1">1 — {{ '%.2f'|format(match['odds_a']) }}</option>
+        <option value="X">X — {{ '%.2f'|format(match['odds_x']) }}</option>
+        <option value="2">2 — {{ '%.2f'|format(match['odds_b']) }}</option>
+      </select>
+      <label class="text-sm mt-2">Montant (100 - 5000 F)</label>
+      <input type="number" name="amount" min="100" max="5000" value="100" class="w-full p-2 rounded border">
+      <button class="mt-3 w-full px-3 py-2 bg-indigo-600 text-white rounded" type="button" onclick="placeBet()">Placer la mise</button>
+    </form>
+    {% else %}
+  <div class="p-4 bg-red-50 rounded">Match terminé — les paris sont clos.</div>
+{% endif %}
+    <div id="betResult" class="mt-3 text-sm"></div>
+  </div>
+</div>
+
+<script>
+// Fonction pour le compte à rebours
+function updateMatchTime() {
+  const el = document.getElementById('match-timer');
+  const startTime = new Date(el.dataset.matchTime);
+  const durations = {
+    'Football': 90,
+    'Basketball': 40,
+    'Rally': 180,
+    'Tennis': 180,
+    'Handball': 60,
+    'Default': 120
+  };
+  const disc = el.dataset.matchDisc || 'Default';
+  const duration = durations[disc] || durations.Default;
+  const endTime = new Date(startTime.getTime() + duration * 60000);
+  const now = new Date();
+
+  if (now < startTime) {
+    const diff = startTime - now;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    if (hours > 24) {
+      el.textContent = `Débute dans ${Math.floor(hours / 24)}j`;
+    } else if (hours > 0) {
+      el.textContent = `Débute dans ${hours}h`;
+    } else {
+      el.textContent = `Débute dans ${minutes}min`;
+    }
+  } else if (now < endTime) {
+    const diff = endTime - now;
+    const minutes = Math.floor(diff / 60000);
+    el.textContent = `Temps restant: ${minutes}min`;
+  } else {
+    el.textContent = 'Terminé';
+  }
+}
+
+// poll for live score and match status every 8 seconds
+async function fetchMatchInfo(){
+  const res = await fetch('/api/matches?status=live');
+  if(!res.ok) return;
+  const matches = await res.json();
+  const my = matches.find(m => m.id === {{ match['id'] }});
+  if(my){
+    document.getElementById('live-score').innerText = my.score_a + ' - ' + my.score_b;
+    if(my.status === 'finished') {
+      location.reload(); // reload to show final state
+    }
+  }
+}
+
+// Charge les paris de l'utilisateur pour ce match
+async function loadUserBets() {
+  {% if session.user %}
+  try {
+    const res = await fetch(`/api/matches/{{ match['id'] }}/bets`);
+    if(!res.ok) return;
+    const bets = await res.json();
+    const container = document.getElementById('user-bets');
+    if(!bets.length) return;
+    
+    let html = '<h3 class="font-semibold mt-4">Vos paris sur ce match</h3>';
+    for(const bet of bets) {
+      const status = bet.processed ? (bet.won ? 
+        '<span class="text-green-600 font-bold">GAGNÉ!</span>' : 
+        '<span class="text-red-600 font-bold">PERDU</span>') 
+        : '<span class="text-gray-600">En attente</span>';
+      
+      html += `
+      <div class="mt-2 p-3 bg-gray-50 rounded">
+        <div>Mise: ${bet.amount}F sur ${bet.choice}</div>
+        <div class="text-sm">${status}</div>
+      </div>`;
+    }
+    container.innerHTML = html;
+  } catch(e) {
+    console.error('Erreur chargement paris:', e);
+  }
+  {% endif %}
+}
+
+// Start updates
+document.addEventListener('DOMContentLoaded', () => {
+  updateMatchTime();
+  setInterval(updateMatchTime, 60000);
+  setInterval(fetchMatchInfo, 8000);
+  loadUserBets();
+});
+</script>
+{% endblock %}

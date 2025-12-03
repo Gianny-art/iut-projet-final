@@ -1,0 +1,91 @@
+{% extends 'base_v2.html' %}
+{% block content %}
+<div class="bg-white rounded p-6">
+  <h1 class="text-2xl font-bold">Administration des matchs</h1>
+
+  <div class="mt-4 grid md:grid-cols-2 gap-6">
+    <div>
+      <h3 class="font-semibold">Ajouter un match</h3>
+      <form id="form-add-match" enctype="multipart/form-data">
+        <label class="block mt-2">Titre</label>
+        <input name="title" class="w-full p-2 border rounded">
+        <label class="block mt-2">Équipe A</label>
+        <input name="team_a" class="w-full p-2 border rounded">
+        <label class="block mt-2">Équipe B</label>
+        <input name="team_b" class="w-full p-2 border rounded">
+        <label class="block mt-2">Date et heure (YYYY-MM-DD HH:MM)</label>
+        <input name="start_time" placeholder="2025-11-10 15:00" class="w-full p-2 border rounded">
+        <label class="block mt-2">Compétition</label>
+        <input name="competition" class="w-full p-2 border rounded">
+        <label class="block mt-2">Discipline</label>
+        <input name="discipline" class="w-full p-2 border rounded">
+        <label class="block mt-2">Cote 1</label>
+        <input name="odds_a" class="w-full p-2 border rounded" value="1.8">
+        <label class="block mt-2">Cote X</label>
+        <input name="odds_x" class="w-full p-2 border rounded" value="3.2">
+        <label class="block mt-2">Cote 2</label>
+        <input name="odds_b" class="w-full p-2 border rounded" value="2.0">
+        <label class="block mt-2">Image (optionnelle)</label>
+        <input type="file" name="image" class="w-full mt-1">
+        <button type="button" onclick="createMatch()" class="mt-4 px-3 py-2 bg-indigo-600 text-white rounded">Créer</button>
+      </form>
+      <div id="admin-msg" class="mt-3"></div>
+    </div>
+
+    <div>
+      <h3 class="font-semibold">Matchs existants</h3>
+      <div class="mt-2 space-y-2">
+        {% for m in matches %}
+        <div class="p-2 border rounded flex justify-between items-center">
+          <div>
+            <div class="text-sm">{{ m.competition }} · {{ m.start_time }}</div>
+            <div class="font-medium">{{ m.team_a }} vs {{ m.team_b }}</div>
+          </div>
+          <button onclick="changeStatus({{ m.id }}, 'live')" class="px-2 py-1 bg-green-500 text-white rounded text-sm">En cours</button>
+<button style="margin: 2px;" onclick="changeStatus({{ m.id }}, 'halftime')" class="px-2 py-1 bg-yellow-400 text-black rounded text-sm">Mi-temps</button>
+<button onclick="changeStatus({{ m.id }}, 'finished')" class="px-2 py-1 bg-red-600 text-white rounded text-sm">Terminé</button>
+<button onclick="updateScore({{ m.id }})" class="px-2 py-1 border rounded text-sm">Update score</button>
+
+          <div>
+            <a href="/match/{{ m.id }}" class="px-2 py-1 border rounded text-sm">Voir</a>
+          </div>
+          
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function createMatch(){
+  const form = document.getElementById('form-add-match');
+  const fd = new FormData(form);
+  const res = await fetch('/api/matches', {method:'POST', body: fd});
+  const data = await res.json();
+  const msg = document.getElementById('admin-msg');
+  if(res.ok && data.ok){
+    msg.innerText = 'Match créé (id:' + data.id + ') — recharge la page pour voir.';
+    form.reset();
+  } else {
+    msg.innerText = 'Erreur: ' + (data.error || 'inconnu');
+  }
+}
+
+async function changeStatus(id, status){
+  const fd = new FormData(); fd.append('status', status);
+  const res = await fetch('/api/match/' + id + '/update_status', {method:'POST', body: fd});
+  if(res.ok){ location.reload(); } else { alert('Erreur status'); }
+}
+async function updateScore(id){
+  const a = prompt('Score équipe A (nombre)');
+  const b = prompt('Score équipe B (nombre)');
+  if(a===null||b===null) return;
+  const fd = new FormData(); fd.append('score_a', a); fd.append('score_b', b);
+  const res = await fetch('/api/match/' + id + '/update_scores', {method:'POST', body: fd});
+  if(res.ok){ location.reload(); } else { alert('Erreur scores'); }
+}
+
+
+</script>
+{% endblock %}
