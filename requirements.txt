@@ -2,3 +2,4 @@ Flask>=2.3.0
 gunicorn
 Werkzeug
 requests
+python-dotenv
