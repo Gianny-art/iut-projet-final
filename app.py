@@ -277,7 +277,7 @@ def logout():
 
 @app.route("/fondateur")
 def fondateur():
-    return render_template("fondateur.html")
+    return render_template("Fondateur.html")
 
 @app.route('/sitemap.xml')
 def sitemap():
