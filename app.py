@@ -275,6 +275,19 @@ def logout():
     return redirect(url_for('index'))
 
 
+@app.route("/fondateur")
+def fondateur():
+    return render_template("fondateur.html")
+
+@app.route('/sitemap.xml')
+def sitemap():
+    return send_from_directory('static', 'sitemap.xml')
+
+@app.route('/robots.txt')
+def robots():
+    return send_from_directory('static', 'robots.txt')
+
+
 # Deposit status and simulation
 @app.route('/deposit_status/<txid>')
 def deposit_status(txid):
