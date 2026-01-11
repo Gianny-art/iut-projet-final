@@ -1,0 +1,40 @@
+{% extends 'base_v2.html' %}
+{% block content %}
+<div class="bg-white rounded p-6">
+  <h1 class="text-2xl font-bold">Demandes de retrait</h1>
+  <div class="mt-4">
+    <table class="w-full text-sm">
+      <thead><tr><th>User</th><th>Montant</th><th>Telephone</th><th>Opérateur</th><th>Statut</th><th>Date</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for w in withdrawals %}
+        <tr class="border-t">
+          <td>{{ w.username or '—' }}</td>
+          <td>{{ w.amount }}F</td>
+          <td>{{ w.phone }}</td>
+          <td>{{ w.operator }}</td>
+          <td>{{ w.status }}</td>
+          <td>{{ w.created_at }}</td>
+          <td class="text-right">
+            {% if w.status == 'PENDING' %}
+              <button onclick="adminWithdraw('approve', {{ w.id }})" class="px-2 py-1 bg-green-600 text-white rounded text-sm">Valider</button>
+              <button onclick="adminWithdraw('reject', {{ w.id }})" class="px-2 py-1 bg-red-500 text-white rounded text-sm">Rejeter</button>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+async function adminWithdraw(action, id){
+  const conf = action === 'reject' ? confirm('Confirmer rejet ?') : true;
+  if(!conf) return;
+  const res = await fetch('/admin/withdraw/' + id + '/' + (action === 'approve' ? 'approve' : 'reject'), {method: 'POST'});
+  if(res.ok) { alert('Opération réussie'); location.reload(); } else { alert('Erreur'); }
+}
+</script>
+{% endblock %}

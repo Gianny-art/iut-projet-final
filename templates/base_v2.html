@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="IUT Bets est la plateforme officielle de paris virtuels dédiée aux étudiants des IUT développé par FOAPA GIANNY ROBERT à l'age de 16ans, offrant une expérience de pari sécurisée et sans argent réel .">
-  <title>IUT Bets — Plateforme officielle</title>
+  <meta name="description" content="IUT Bet est la plateforme officielle de paris virtuels dédiée aux étudiants des IUT développé par E-concept, offrant une expérience de pari sécurisée et sans argent réel .">
+  <title>IUT Bet — Plateforme officielle</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -169,6 +169,37 @@
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
   <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
   <script src="{{ url_for('static', filename='js/live.js') }}"></script>
+
+  {% if session.get('user') %}
+  <script>
+    // Real-time notifications via Server-Sent Events (SSE)
+    if ('EventSource' in window) {
+      try{
+        const es = new EventSource('/stream/notifications');
+        es.onmessage = function(e){
+          try{
+            const d = JSON.parse(e.data);
+            showRealtimeNotification(d.message);
+            // update unread count/badge if present
+            fetch('/api/notifications/unread_count').then(r=>r.json()).then(j=>{
+              const b = document.getElementById('notifBadge'); if(b){ if(j.unread>0){ b.innerText = j.unread; b.classList.remove('hidden'); } else b.classList.add('hidden'); }
+            }).catch(()=>{});
+          }catch(err){ console.error('SSE parse', err); }
+        };
+        es.onerror = function(){ /* ignore */ };
+      }catch(e){ console.log('SSE init failed', e); }
+    }
+
+    function showRealtimeNotification(msg){
+      const n = document.createElement('div');
+      n.className = 'fixed bottom-4 right-4 bg-indigo-600 text-white px-4 py-2 rounded shadow-lg z-50';
+      n.innerText = msg;
+      document.body.appendChild(n);
+      setTimeout(()=>{ n.remove(); }, 6000);
+    }
+  </script>
+  {% endif %}
+
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",

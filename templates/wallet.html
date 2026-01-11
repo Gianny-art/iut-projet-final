@@ -3,19 +3,27 @@
 <div class="p-6">
   <div class="max-w-4xl mx-auto">
     <h1 class="text-2xl font-bold mb-6">Mon Portefeuille</h1>
-    
+
+    <!-- Message de confirmation pour les retraits -->
+    <div id="withdrawMessageBanner" class="hidden max-w-4xl mx-auto mb-4 p-4 rounded border-l-4 border-yellow-400 bg-yellow-50 text-yellow-900">
+      <!-- rempli dynamiquement -->
+    </div>
+
     <div class="grid md:grid-cols-2 gap-6">
       <!-- Solde actuel -->
       <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-xl font-semibold mb-4">Solde Actuel</h2>
         <div class="text-3xl font-bold text-indigo-600">{{ session.user.balance }}F</div>
-        <div class="mt-4 flex gap-3">
+        <div class="mt-4 flex gap-3 items-center">
           <a href="{{ url_for('deposit_page') }}" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
             Déposer
           </a>
           <button onclick="showWithdrawModal()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
             Retirer
           </button>
+          <a href="{{ url_for('logout') }}" class="px-3 py-2 border rounded text-sm hover:bg-gray-50 ml-auto">
+            Déconnexion
+          </a>
         </div>
       </div>
 
@@ -73,14 +81,22 @@
                  class="w-full p-2 border rounded" required>
         </div>
 
-        <div class="flex justify-end gap-3 mt-6">
-          <button type="button" onclick="hideWithdrawModal()" 
-                  class="px-4 py-2 border rounded hover:bg-gray-50">
-            Annuler
-          </button>
-          <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-            Confirmer
-          </button>
+        <div class="flex justify-between gap-3 mt-6">
+          <div>
+            <button type="button" onclick="window.location.href='/logout'" 
+                    class="px-4 py-2 border rounded hover:bg-gray-50">
+              Déconnexion
+            </button>
+          </div>
+          <div>
+            <button type="button" onclick="hideWithdrawModal()" 
+                    class="px-4 py-2 border rounded hover:bg-gray-50">
+              Annuler
+            </button>
+            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+              Confirmer
+            </button>
+          </div>
         </div>
       </div>
     </form>
@@ -114,14 +130,40 @@ async function submitWithdraw(e) {
     const result = await res.json();
     
     if (result.error) {
-      alert(result.error);
+      // Afficher l'erreur dans le banner de retrait
+      const banner = document.getElementById('withdrawMessageBanner');
+      banner.classList.remove('hidden');
+      banner.classList.remove('bg-yellow-50','text-yellow-900');
+      banner.classList.add('bg-red-50','text-red-700');
+      banner.innerHTML = `<strong>Erreur :</strong> ${result.error}`;
+      // Scroll vers le message et masquer automatiquement après 10s
+      banner.scrollIntoView({behavior: 'smooth'});
+      setTimeout(() => { banner.classList.add('hidden'); }, 10000);
       return;
     }
     
     hideWithdrawModal();
-    location.reload(); // Recharger pour voir le nouveau solde
+
+    // Affiche un message utilisateur clair indiquant que la demande est prise en compte
+    const banner = document.getElementById('withdrawMessageBanner');
+    banner.classList.remove('hidden');
+    banner.classList.remove('bg-red-50','text-red-700');
+    banner.classList.add('bg-yellow-50','text-yellow-900');
+    banner.innerHTML = `<strong>Retrait enregistré —</strong> Votre demande a été prise en compte. Les administrateurs vont la vérifier et la traiter prochainement.`;
+    // Scroll vers le message et masquer automatiquement après 10s
+    banner.scrollIntoView({behavior: 'smooth'});
+    setTimeout(() => { banner.classList.add('hidden'); }, 10000);
+
+    // Recharger la page après un court délai pour rafraîchir l'historique
+    setTimeout(() => { window.location.reload(); }, 4000);
   } catch(e) {
-    alert("Erreur lors du retrait. Réessayez plus tard.");
+    const banner = document.getElementById('withdrawMessageBanner');
+    banner.classList.remove('hidden');
+    banner.classList.remove('bg-yellow-50','text-yellow-900');
+    banner.classList.add('bg-red-50','text-red-700');
+    banner.innerHTML = `<strong>Erreur réseau :</strong> Impossible d'envoyer la demande. Réessayez plus tard.`;
+    banner.scrollIntoView({behavior: 'smooth'});
+    setTimeout(() => { banner.classList.add('hidden'); }, 10000);
   }
 }
 

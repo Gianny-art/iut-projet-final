@@ -13,9 +13,29 @@
           <td>{{ p.status }}</td>
           <td>{{ p.created_at }}</td>
           <td>{{ p.provider_tx_id or '—' }}</td>
+          <td class="text-right">
+            {% if p.status == 'PENDING' %}
+              <button onclick="adminAction('approve', {{ p.id }})" class="px-2 py-1 bg-green-600 text-white rounded text-sm">Valider</button>
+              <button onclick="adminAction('reject', {{ p.id }})" class="px-2 py-1 bg-red-500 text-white rounded text-sm">Rejeter</button>
+            {% else %}
+              —
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+async function adminAction(action, id){
+  const confirmed = action === 'reject' ? confirm('Confirmer le rejet ?') : true;
+  if(!confirmed) return;
+  const res = await fetch('/admin/payment/' + id + '/' + (action === 'approve' ? 'approve' : 'reject'), {method: 'POST'});
+  if(res.ok) { alert('Opération réussie'); location.reload(); } else { alert('Erreur'); }
+}
+</script>
     </table>
   </div>
 </div>

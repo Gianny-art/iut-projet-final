@@ -3,6 +3,30 @@
 <div class="bg-white rounded p-6">
   <h1 class="text-2xl font-bold">Administration des matchs</h1>
 
+  <div class="mt-4 grid md:grid-cols-3 gap-6">
+    <div class="col-span-1 bg-white rounded p-4">
+      <h3 class="font-semibold">Notifications <span id="notifBadge" class="ml-2 inline-flex items-center justify-center text-xs bg-red-600 text-white rounded-full px-2 py-0.5 hidden">0</span></h3>
+      <div id="notifList" class="mt-2 text-sm text-gray-600">Chargement…</div>
+      <div class="mt-3">
+        <a href="/admin/payments" class="px-3 py-2 bg-indigo-600 text-white rounded">Voir dépôts</a>
+        <a href="/admin/withdrawals" class="px-3 py-2 bg-green-600 text-white rounded ml-2">Voir retraits</a>
+      </div>
+    </div>
+
+    <div class="col-span-1 bg-white rounded p-4">
+      <h3 class="font-semibold">Utilisateurs connectés</h3>
+      <div id="onlineUsers" class="mt-2 text-sm text-gray-600">Chargement…</div>
+    </div>
+
+    <div class="col-span-1 bg-white rounded p-4">
+      <h3 class="font-semibold">Actions rapides</h3>
+      <div class="mt-2">
+        <button onclick="location.href='/admin/payments'" class="px-3 py-2 bg-indigo-600 text-white rounded mb-2 w-full">Gérer dépôts</button>
+        <button onclick="location.href='/admin/withdrawals'" class="px-3 py-2 bg-green-600 text-white rounded w-full">Gérer retraits</button>
+      </div>
+    </div>
+  </div>
+
   <div class="mt-4 grid md:grid-cols-2 gap-6">
     <div>
       <h3 class="font-semibold">Ajouter un match</h3>
@@ -87,5 +111,38 @@ async function updateScore(id){
 }
 
 
-</script>
+async function fetchUnreadCount(){
+  try{
+    const res = await fetch('/api/notifications/unread_count');
+    const data = await res.json();
+    const badge = document.getElementById('notifBadge');
+    if(!badge) return;
+    const n = data.unread || 0;
+    if(n > 0){ badge.innerText = n; badge.classList.remove('hidden'); } else { badge.classList.add('hidden'); }
+  }catch(e){ console.log('Unread count error', e); }
+}
+
+async function fetchNotifs(){
+  try{
+    const res = await fetch('/api/notifications');
+    const data = await res.json();
+    const el = document.getElementById('notifList');
+    if(!data.length){ el.innerText = 'Aucune notification récente'; return; }
+    el.innerHTML = data.slice(0,5).map(n => `<div class="py-1 border-b">${n.message} <div class="text-xs text-gray-400">${n.created_at}</div></div>`).join('');
+  }catch(e){ console.log(e); }
+}
+
+async function fetchOnline(){
+  try{
+    const res = await fetch('/api/online_users');
+    const data = await res.json();
+    const el = document.getElementById('onlineUsers');
+    if(!data.length){ el.innerText = 'Aucun utilisateur connecté'; return; }
+    el.innerHTML = data.map(u => `<div class="py-1">${u.username} <span class="text-xs text-gray-400">${u.last_seen}</span></div>`).join('');
+  }catch(e){ console.log(e); }
+}
+
+// initial calls
+fetchNotifs(); fetchOnline(); fetchUnreadCount();
+setInterval(fetchNotifs, 10000); setInterval(fetchOnline, 10000); setInterval(fetchUnreadCount, 10000);
 {% endblock %}

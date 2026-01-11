@@ -81,9 +81,49 @@
       {% if info.status != 'FINISHED' %}
         <div class="text-sm text-gray-600 mb-4">
           <i class="fas fa-info-circle text-indigo-600"></i>
-          Votre paiement est en cours de traitement. Cette page se rafraîchira automatiquement.
+          Votre paiement est en cours de traitement. <strong class="text-yellow-600">Si le dépôt ne fonctionne pas, utilisez le bouton "Instructions" ci-dessous.</strong>
         </div>
-        
+
+        <!-- Zone USSD / QR pour effectuer le paiement depuis le téléphone -->
+        <div class="bg-white p-4 rounded-lg mb-4">
+          <h4 class="font-semibold mb-2">Payer maintenant</h4>
+          <div class="flex items-center gap-3 mb-3">
+            <div class="p-3 bg-gray-100 rounded">
+              <div class="text-xs text-gray-500">Code USSD</div>
+              <div id="statusUSSD" class="font-mono mt-1">{{ '#' }}</div>
+            </div>
+            <div>
+              <a id="statusPayBtn" class="btn btn-orange hidden px-4 py-2 mr-2" href="#">📞 Payer maintenant</a>
+              <button id="statusCopy" class="px-3 py-2 border rounded">Copier</button>
+              <button class="ml-2 px-3 py-2 rounded-md bg-yellow-400 text-black font-medium" id="btnManual" onclick="selectOperator('MANUAL')">
+                <i class="fas fa-info-circle mr-1"></i> Instructions
+              </button>
+            </div>
+          </div>
+          <div id="manualInstructions" class="mt-3 hidden p-4 rounded border-l-4 border-yellow-400 bg-yellow-50 text-yellow-900">
+            <strong>Instructions manuelles :</strong>
+            <p class="mt-2 font-medium">Utilisez cette option si votre dépôt n'a pas été effectué automatiquement.</p>
+            <ol class="list-decimal ml-5 mt-2">
+             <li>Ouvrez l'application Téléphone de votre mobile.</li>
+              <li>Faites un depot classique sur les comptes de l'entreprise <br> <b>MTN: 654136468</b> <b>ORANGE: 655260684</b></li>
+              <li>Validez et entrez votre code secret si demandé.</li>
+            </ol>
+            <p class="mt-2 text-xs">Si nécessaire, contactez le support pour assistance.</p>
+          </div>
+          </div>
+
+          <!-- Bouton d'instructions (remplace le QR) -->
+          <div class="mt-3">
+            <button id="statusManualBtn" class="px-4 py-2 rounded-md bg-yellow-400 text-black font-medium shadow-sm hover:bg-yellow-500 transition inline-flex items-center">
+              <i class="fas fa-info-circle mr-2"></i>
+              Instructions de paiement
+            </button>
+            <span class="ml-3 inline-flex items-center px-2 py-1 rounded text-sm font-medium bg-red-100 text-red-700">
+              <strong>En cas d'échec du dépôt</strong>
+            </span>
+          </div>
+        </div>
+
         <!-- Bouton de simulation en mode sandbox -->
         <form method="post" action="{{ url_for('webhook_pawapay') }}" class="mt-4">
           <input type="hidden" name="externalId" value="{{ txid }}">
@@ -106,10 +146,81 @@
 
   {% if info.status != 'FINISHED' %}
   <script>
-    // Rafraîchit la page toutes les 5 secondes
-    setTimeout(() => {
-      window.location.reload();
-    }, 5000);
+    // Rafraîchissement automatique supprimé — la page reste stable pour permettre à l'utilisateur d'agir sans être dérouté.
+
+    // Générer USSD si on a les infos
+    (function(){
+      const op = '{{ info.operator or '' }}';
+      const amt = '{{ info.amount or '' }}';
+      const phone = '{{ info.phone or '' }}';
+      function genUSD(op, phone, amt){
+        // ORANGE: receiver-based USSD
+        if(op == 'ORANGE') return `#150*1*1*655260684*${amt}*2*1#`;
+        // MTN: *126*<numero>*<montant># (utilise le numéro de l'utilisateur)
+        if(op == 'MTN') return `*126*${phone}*${amt}#`;
+        // Default / unknown: return a neutral string prompting manual instruction
+        return null;
+      }
+
+      function selectOperator(mode){
+        const manual = document.getElementById('manualInstructions');
+        const ussdArea = document.getElementById('statusUSSD');
+        const payBtn = document.getElementById('statusPayBtn');
+        if(mode === 'MANUAL'){
+          // Show manual instructions
+          manual.classList.remove('hidden');
+          payBtn.classList.add('hidden');
+          ussdArea.innerText = 'Voir les instructions ci-dessous';
+        } else {
+          manual.classList.add('hidden');
+        }
+      }
+
+      if(op && amt){
+        const code = genUSD(op, phone, amt);
+        const ussdEl = document.getElementById('statusUSSD');
+        const btn = document.getElementById('statusPayBtn');
+        const manualBtn = document.getElementById('statusManualBtn');
+
+        if(code){
+          ussdEl.innerText = code;
+          const uri = 'tel:' + encodeURIComponent(code);
+          btn.href = uri; btn.classList.remove('hidden');
+          document.getElementById('statusCopy').onclick = ()=>{ navigator.clipboard.writeText(code); alert('USSD copié'); };
+          // No QR shown anymore — we provide a clear instructions button instead
+
+          // auto-dial on mobile
+          const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+          if(isMobile){ setTimeout(()=>{ window.location.href = uri; }, 600); }
+
+          if(manualBtn){
+            // keep manual button available, normal styling
+            manualBtn.classList.remove('hidden');
+            manualBtn.classList.remove('ring-2','ring-red-300');
+          }
+        } else {
+          // unknown operator -> show manual option automatically and highlight it
+          ussdEl.innerText = 'Opérateur non standard — utilisez les instructions manuelles.';
+          document.getElementById('statusCopy').onclick = ()=>{ alert('Veuillez suivre les instructions manuelles ci-dessous.'); };
+          btn.classList.add('hidden');
+          if(manualBtn){
+            manualBtn.classList.remove('hidden');
+            manualBtn.classList.add('ring-2','ring-red-300');
+          }
+          selectOperator('MANUAL');
+        }
+      }
+
+      // Hook manual buttons (both the local one and main one)
+      const btnManual = document.getElementById('btnManual');
+      const statusManualBtn = document.getElementById('statusManualBtn');
+      if(btnManual) btnManual.onclick = ()=> selectOperator('MANUAL');
+      if(statusManualBtn) statusManualBtn.onclick = ()=> selectOperator('MANUAL');
+
+      // Recharger la page après 60 secondes pour actualiser le statut si nécessaire
+      setTimeout(() => { window.location.reload(); }, 60000);
+
+    })();
   </script>
   {% endif %}
 </div>

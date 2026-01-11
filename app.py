@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash, send_from_directory, abort
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash, send_from_directory, abort, Response, stream_with_context
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone
@@ -10,6 +10,7 @@ import os
 import uuid
 from datetime import timedelta
 import requests
+import time
 load_dotenv()  # charge ton fichier .env automatiquement
 
 PAWAPAY_API_TOKEN = os.getenv("PAWAPAY_API_TOKEN")
@@ -130,6 +131,24 @@ def ensure_payments_table():
         FOREIGN KEY (user_id) REFERENCES users(id)
     );
     """)
+    # Table des notifications (pour admin et utilisateurs)
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        message TEXT,
+        category TEXT DEFAULT 'system',
+        is_read INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+    # Table pour suivre les utilisateurs connectés (dernière activité)
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS online_users (
+        user_id INTEGER PRIMARY KEY,
+        last_seen TEXT
+    );
+    """)
     conn.commit(); conn.close()
 
 ensure_payments_table()
@@ -157,6 +176,17 @@ def refresh_session_user():
             session['user'] = dict(u)
         else:
             session.pop('user', None)
+
+
+def create_notification(user_id, message, category='system'):
+    """Insère une notification. user_id can be None for admin/global notifications."""
+    try:
+        conn = get_db(); c = conn.cursor()
+        c.execute("INSERT INTO notifications (user_id, message, category) VALUES (?, ?, ?)", (user_id, message, category))
+        conn.commit(); conn.close()
+    except Exception as e:
+        print('Erreur create_notification:', e)
+        pass
 
 def process_finished_matches():
     """Traite tous les paris non-traités des matchs terminés"""
@@ -208,6 +238,18 @@ def process_finished_matches():
 @app.before_request
 def before():
     refresh_session_user()
+
+    # Mettre à jour la présence de l'utilisateur (online_users)
+    try:
+        if 'user' in session:
+            conn = get_db(); c = conn.cursor()
+            now = datetime.utcnow().isoformat()
+            c.execute("INSERT OR REPLACE INTO online_users (user_id, last_seen) VALUES (?, ?)", (session['user']['id'], now))
+            conn.commit(); conn.close()
+    except Exception as e:
+        print('Erreur update online_users:', e)
+        pass
+
     # update match statuses based on timeouts
     try:
         update_match_statuses()
@@ -311,7 +353,7 @@ def deposit_page():
 # === DEPOT ===
 @app.route("/api/deposit", methods=["POST"])
 def api_deposit():
-    """Endpoint de dépôt simplifié - simulation locale"""
+    """Endpoint de dépôt simplifié - crée une demande de dépôt en PENDING (admin valide)."""
     if 'user' not in session:
         return jsonify({'error': 'Authentication required'}), 401
     
@@ -330,37 +372,34 @@ def api_deposit():
     user_id = session['user']['id']
     provider_tx_id = f"DEPOT_{user_id}_{uuid.uuid4().hex[:8]}"
 
-    # Enregistrer le paiement en base
+    # Enregistrer le paiement en base en statut PENDING
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT INTO payments (user_id, amount, operator, status, provider_tx_id) VALUES (?, ?, ?, ?, ?)",
               (user_id, amount, operator, 'PENDING', provider_tx_id))
-    
-    # Pour la démo, on crédite directement le compte (en prod, attendrait confirmation Mobile Money)
-    c.execute("UPDATE users SET balance = balance + ? WHERE id = ?", (amount, user_id))
-    c.execute("UPDATE payments SET status = ? WHERE provider_tx_id = ?", ('FINISHED', provider_tx_id))
-    c.execute("INSERT INTO transactions (user_id, amount, type) VALUES (?, ?, ?)",
-              (user_id, amount, 'deposit'))
-    conn.commit()
-    
-    # Recharger le solde en session
-    c.execute("SELECT balance FROM users WHERE id = ?", (user_id,))
-    new_balance = c.fetchone()['balance']
-    conn.close()
-    session['user']['balance'] = new_balance
+    conn.commit(); conn.close()
 
-    # Simuler l'enregistrement Pawapay
-    with open(PAWAPAY_SIM_DB, 'r+', encoding='utf-8') as f:
-        data = json.load(f)
-        data[provider_tx_id] = {
-            'status': 'FINISHED',
-            'amount': amount,
-            'operator': operator,
-            'phone': phone,
-            'created_at': datetime.now(timezone.utc).isoformat()
-        }
-        f.seek(0); f.truncate(); json.dump(data, f)
+    # Enregistrer aussi dans le fichier de simulation Pawapay
+    try:
+        with open(PAWAPAY_SIM_DB, 'r+', encoding='utf-8') as f:
+            data = json.load(f)
+            data[provider_tx_id] = {
+                'status': 'PENDING',
+                'amount': amount,
+                'operator': operator,
+                'phone': phone,
+                'created_at': datetime.now(timezone.utc).isoformat()
+            }
+            f.seek(0); f.truncate(); json.dump(data, f)
+    except Exception as e:
+        print('Erreur write pawapay sim:', e)
 
-    return jsonify({'ok': True, 'provider_tx_id': provider_tx_id})
+    # Créer une notification pour l'admin
+    try:
+        create_notification(None, f"Nouveau dépôt en attente: {amount}F par {session['user']['username']}", 'deposit')
+    except Exception as e:
+        print('Erreur notify admin deposit:', e)
+
+    return jsonify({'ok': True, 'provider_tx_id': provider_tx_id, 'message': 'Dépôt enregistré. En attente de validation par l\'admin.'})
 
 # === WEBHOOK ===
 @app.route("/webhook/pawapay", methods=["POST"])
@@ -404,10 +443,20 @@ def webhook_pawapay():
             c.execute("INSERT INTO transactions (user_id, amount, type) VALUES (?, ?, ?)", (user_id, amount, 'deposit'))
         # mark payment finished
         c.execute('UPDATE payments SET status=? WHERE id=?', ('FINISHED', p['id']))
+        # create user notification
+        try:
+            create_notification(user_id, f"Votre dépôt de {amount}F a été confirmé.", 'deposit')
+        except Exception as e:
+            print('Erreur create_notification user deposit:', e)
         conn.commit(); conn.close()
         print(f"✅ Transaction confirmée : {transaction_id}")
     else:
         c.execute('UPDATE payments SET status=? WHERE id=?', (status or 'FAILED', p['id']))
+        # notify user of failure
+        try:
+            create_notification(p['user_id'], f"Votre dépôt {p['provider_tx_id']} a échoué.", 'deposit')
+        except Exception as e:
+            print('Erreur notify failure:', e)
         conn.commit(); conn.close()
         print(f"❌ Transaction échouée : {transaction_id}")
 
@@ -524,6 +573,137 @@ def admin_payments():
     return render_template('admin_payments.html', payments=rows)
 
 
+# Approve a pending payment (admin)
+@app.route('/admin/payment/<int:payment_id>/approve', methods=['POST'])
+def admin_payment_approve(payment_id):
+    admin_required()
+    conn = get_db(); c = conn.cursor()
+    c.execute('SELECT * FROM payments WHERE id=?', (payment_id,))
+    p = c.fetchone()
+    if not p:
+        conn.close(); return jsonify({'error': 'Paiement introuvable'}), 404
+    if p['status'] == 'FINISHED':
+        conn.close(); return jsonify({'error': 'Paiement déjà confirmé'}), 400
+
+    # credit user
+    c.execute('SELECT balance FROM users WHERE id=?', (p['user_id'],))
+    row = c.fetchone()
+    if row:
+        new_bal = (row['balance'] or 0) + p['amount']
+        c.execute('UPDATE users SET balance=? WHERE id=?', (new_bal, p['user_id']))
+        c.execute("INSERT INTO transactions (user_id, amount, type) VALUES (?, ?, ?)", (p['user_id'], p['amount'], 'deposit'))
+    c.execute('UPDATE payments SET status=? WHERE id=?', ('FINISHED', payment_id))
+    conn.commit(); conn.close()
+
+    # Update pawapay sim DB if exists
+    try:
+        with open(PAWAPAY_SIM_DB, 'r+') as f:
+            data = json.load(f)
+            if p['provider_tx_id'] in data:
+                data[p['provider_tx_id']]['status'] = 'FINISHED'
+                f.seek(0); f.truncate(); json.dump(data, f)
+    except Exception:
+        pass
+
+    # notify user
+    create_notification(p['user_id'], f"Votre dépôt de {p['amount']}F a été validé.", 'deposit')
+    return jsonify({'ok': True})
+
+
+@app.route('/admin/payment/<int:payment_id>/reject', methods=['POST'])
+def admin_payment_reject(payment_id):
+    admin_required()
+    conn = get_db(); c = conn.cursor()
+    c.execute('SELECT * FROM payments WHERE id=?', (payment_id,))
+    p = c.fetchone()
+    if not p:
+        conn.close(); return jsonify({'error': 'Paiement introuvable'}), 404
+    if p['status'] in ('REJECTED', 'FAILED'):
+        conn.close(); return jsonify({'error': 'Paiement déjà rejeté'}), 400
+
+    c.execute('UPDATE payments SET status=? WHERE id=?', ('REJECTED', payment_id))
+    conn.commit(); conn.close()
+    # update sim db
+    try:
+        with open(PAWAPAY_SIM_DB, 'r+') as f:
+            data = json.load(f)
+            if p['provider_tx_id'] in data:
+                data[p['provider_tx_id']]['status'] = 'FAILED'
+                f.seek(0); f.truncate(); json.dump(data, f)
+    except Exception:
+        pass
+
+    create_notification(p['user_id'], f"Votre dépôt de {p['amount']}F a été rejeté. Veuillez réessayer.", 'deposit')
+    return jsonify({'ok': True})
+
+
+# Withdrawals admin actions
+@app.route('/admin/withdrawals')
+def admin_withdrawals():
+    admin_required()
+    conn = get_db(); c = conn.cursor()
+    c.execute("SELECT w.*, u.username FROM withdrawals w LEFT JOIN users u ON u.id = w.user_id ORDER BY w.created_at DESC")
+    rows = c.fetchall(); conn.close()
+    return render_template('admin_withdrawals.html', withdrawals=rows)
+
+
+@app.route('/admin/withdraw/<int:wid>/approve', methods=['POST'])
+def admin_withdraw_approve(wid):
+    admin_required()
+    conn = get_db(); c = conn.cursor()
+    c.execute('SELECT * FROM withdrawals WHERE id=?', (wid,))
+    w = c.fetchone()
+    if not w:
+        conn.close(); return jsonify({'error': 'Retrait introuvable'}), 404
+    if w['status'] == 'FINISHED':
+        conn.close(); return jsonify({'error': 'Déjà traité'}), 400
+
+    # Vérifier que l'utilisateur existe et a encore le solde nécessaire au moment d'approbation
+    c.execute('SELECT balance FROM users WHERE id=?', (w['user_id'],))
+    row = c.fetchone()
+    if not row:
+        conn.close(); return jsonify({'error': 'Utilisateur introuvable'}), 404
+    if (row['balance'] or 0) < w['amount']:
+        conn.close(); return jsonify({'error': 'Solde insuffisant pour traiter le retrait'}), 400
+
+    # Déduire le montant du solde de l'utilisateur (effectif lors de l'approbation)
+    c.execute('UPDATE users SET balance = balance - ? WHERE id=?', (w['amount'], w['user_id']))
+    c.execute("INSERT INTO transactions (user_id, amount, type) VALUES (?, ?, ?)", (w['user_id'], -w['amount'], 'withdrawal'))
+
+    # compute platform fee (1%) and credit platform (admin user id=1)
+    fee = int(max(1, round(w['amount'] * 0.01)))
+    c.execute('UPDATE users SET balance = balance + ? WHERE id=?', (fee, 1))
+
+    # mark withdrawal finished
+    c.execute('UPDATE withdrawals SET status=? WHERE id=?', ('FINISHED', wid))
+    conn.commit(); conn.close()
+
+    # notify user
+    create_notification(w['user_id'], f"Votre demande de retrait de {w['amount']}F a été approuvée.", 'withdrawal')
+    return jsonify({'ok': True})
+
+
+@app.route('/admin/withdraw/<int:wid>/reject', methods=['POST'])
+def admin_withdraw_reject(wid):
+    admin_required()
+    conn = get_db(); c = conn.cursor()
+    c.execute('SELECT * FROM withdrawals WHERE id=?', (wid,))
+    w = c.fetchone()
+    if not w:
+        conn.close(); return jsonify({'error': 'Retrait introuvable'}), 404
+    if w['status'] in ('REJECTED', 'FAILED'):
+        conn.close(); return jsonify({'error': 'Déjà traité'}), 400
+
+    # refund the user (since original request deducted the amount)
+    c.execute('UPDATE users SET balance = balance + ? WHERE id=?', (w['amount'], w['user_id']))
+    c.execute("INSERT INTO transactions (user_id, amount, type) VALUES (?, ?, ?)", (w['user_id'], w['amount'], 'withdrawal_refund'))
+    c.execute('UPDATE withdrawals SET status=? WHERE id=?', ('REJECTED', wid))
+    conn.commit(); conn.close()
+
+    create_notification(w['user_id'], f"Votre demande de retrait de {w['amount']}F a été rejetée. Le montant a été restitué à votre compte.", 'withdrawal')
+    return jsonify({'ok': True})
+
+
 # Admin panel (only for is_admin users)
 def admin_required():
     if 'user' not in session or session['user'].get('is_admin') != 1:
@@ -537,6 +717,50 @@ def admin():
     matches = c.fetchall()
     conn.close()
     return render_template('admin_v2.html', matches=matches)
+
+
+@app.route('/api/notifications')
+def api_notifications():
+    if 'user' not in session:
+        return jsonify([])
+    conn = get_db(); c = conn.cursor()
+    # fetch personal notifications plus global (user_id IS NULL)
+    c.execute("SELECT * FROM notifications WHERE user_id IS NULL OR user_id=? ORDER BY created_at DESC LIMIT 50", (session['user']['id'],))
+    rows = c.fetchall(); conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route('/api/notifications/unread_count')
+def api_notifications_unread_count():
+    if 'user' not in session:
+        return jsonify({'unread': 0})
+    uid = session['user']['id']
+    conn = get_db(); c = conn.cursor()
+    # count unread that are either global or for the user
+    c.execute("SELECT COUNT(*) as c FROM notifications WHERE is_read=0 AND (user_id IS NULL OR user_id=?)", (uid,))
+    row = c.fetchone(); conn.close()
+    return jsonify({'unread': row['c'] if row else 0})
+
+
+@app.route('/api/notifications/<int:nid>/read', methods=['POST'])
+def api_notification_read(nid):
+    if 'user' not in session:
+        return jsonify({'error': 'Auth required'}), 401
+    conn = get_db(); c = conn.cursor()
+    c.execute('UPDATE notifications SET is_read=1 WHERE id=?', (nid,))
+    conn.commit(); conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/online_users')
+def api_online_users():
+    admin_required()
+    # consider users with last_seen within last 5 minutes as connected
+    cutoff = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
+    conn = get_db(); c = conn.cursor()
+    c.execute("SELECT o.user_id, o.last_seen, u.username FROM online_users o JOIN users u ON u.id = o.user_id WHERE o.last_seen >= ? ORDER BY o.last_seen DESC", (cutoff,))
+    rows = c.fetchall(); conn.close()
+    return jsonify([dict(r) for r in rows])
 
 # API endpoints
 # Portefeuille et retraits
@@ -607,30 +831,22 @@ def api_withdraw():
             f.truncate()
             json.dump(data, f)
         
-        # Enregistrer le retrait
+            # Enregistrer le retrait (PENDING). Ne pas débiter le compte pour l'instant — l'admin doit approuver.
         c.execute("""
             INSERT INTO withdrawals (user_id, amount, phone, operator, provider_tx_id)
             VALUES (?, ?, ?, ?, ?)
         """, (user['id'], amount, phone, operator, provider_tx_id))
-        
-        # Déduire le montant du solde
-        c.execute("UPDATE users SET balance = balance - ? WHERE id = ?",
-                 (amount, user['id']))
-        
-        # Ajouter la transaction
-        c.execute("""
-            INSERT INTO transactions (user_id, amount, type)
-            VALUES (?, ?, ?)
-        """, (user['id'], -amount, 'withdrawal'))
-        
         conn.commit()
-        
-        # Mettre à jour le solde en session
-        session['user']['balance'] -= amount
+
+        # Notifier l'admin d'une demande de retrait
+        try:
+            create_notification(None, f"Nouvelle demande de retrait: {amount}F par {session['user']['username']}", 'withdrawal')
+        except Exception as e:
+            print('Erreur notify admin withdraw:', e)
         
         return jsonify({
             'ok': True,
-            'message': 'Retrait en cours de traitement',
+            'message': 'Retrait enregistré. Il sera débité une fois approuvé par l\'admin.',
             'provider_tx_id': provider_tx_id
         })
         
