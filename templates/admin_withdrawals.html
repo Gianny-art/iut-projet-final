@@ -1,40 +1,47 @@
 {% extends 'base_v2.html' %}
 {% block content %}
-<div class="bg-white rounded p-6">
-  <h1 class="text-2xl font-bold">Demandes de retrait</h1>
-  <div class="mt-4">
-    <table class="w-full text-sm">
-      <thead><tr><th>User</th><th>Montant</th><th>Telephone</th><th>Opérateur</th><th>Statut</th><th>Date</th><th>Actions</th></tr></thead>
+<div class="px-4">
+  <h1 class="text-xl font-bold mb-4">Retraits</h1>
+  {% include '_admin_nav.html' %}
+
+  <div class="card overflow-x-auto">
+    <table class="table-auto w-full text-sm">
+      <thead><tr><th>Utilisateur</th><th>Montant</th><th>Téléphone</th><th>Opérateur</th><th>Statut</th><th>Date</th><th></th></tr></thead>
       <tbody>
         {% for w in withdrawals %}
-        <tr class="border-t">
+        <tr>
           <td>{{ w.username or '—' }}</td>
-          <td>{{ w.amount }}F</td>
+          <td class="font-semibold">{{ w.amount }}F</td>
           <td>{{ w.phone }}</td>
           <td>{{ w.operator }}</td>
-          <td>{{ w.status }}</td>
-          <td>{{ w.created_at }}</td>
-          <td class="text-right">
+          <td><span class="status-badge status-{{ 'live' if w.status=='PENDING' else 'halftime' if w.status=='PROCESSING' else 'finished' if w.status=='FINISHED' else 'scheduled' }}">{{ w.status }}</span></td>
+          <td class="text-[var(--text-muted)]">{{ w.created_at }}</td>
+          <td class="text-right whitespace-nowrap">
             {% if w.status == 'PENDING' %}
-              <button onclick="adminWithdraw('approve', {{ w.id }})" class="px-2 py-1 bg-green-600 text-white rounded text-sm">Valider</button>
-              <button onclick="adminWithdraw('reject', {{ w.id }})" class="px-2 py-1 bg-red-500 text-white rounded text-sm">Rejeter</button>
-            {% else %}
-              —
-            {% endif %}
+              <button onclick="adminWithdraw('approve', {{ w.id }})" class="btn btn-sm btn-gold">Valider / Payer</button>
+              <button onclick="adminWithdraw('reject', {{ w.id }})" class="btn btn-sm btn-danger">Rejeter</button>
+            {% elif w.status == 'PROCESSING' %}
+              <span class="text-xs text-[var(--text-muted)]">En attente de confirmation {{ w.provider }}…</span>
+            {% else %}—{% endif %}
           </td>
         </tr>
+        {% else %}
+        <tr><td colspan="7"><div class="empty-state"><i class="fas fa-hand-holding-dollar"></i>Aucun retrait.</div></td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  <p class="text-xs text-[var(--text-muted)] mt-3"><i class="fas fa-circle-info"></i> "Valider / Payer" débite l'utilisateur puis déclenche le paiement automatique si Campay/Maviance est actif, sinon vous transférez l'argent manuellement puis confirmez ici.</p>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
 async function adminWithdraw(action, id){
-  const conf = action === 'reject' ? confirm('Confirmer rejet ?') : true;
-  if(!conf) return;
-  const res = await fetch('/admin/withdraw/' + id + '/' + (action === 'approve' ? 'approve' : 'reject'), {method: 'POST'});
-  if(res.ok) { alert('Opération réussie'); location.reload(); } else { alert('Erreur'); }
+  if(action === 'reject' && !confirm('Confirmer le rejet ?')) return;
+  const res = await fetch('/admin/withdraw/' + id + '/' + action, {method: 'POST'});
+  const data = await res.json();
+  if(res.ok){ showToast('Opération réussie'); location.reload(); } else { showToast(data.error || 'Erreur', 'error'); }
 }
 </script>
 {% endblock %}

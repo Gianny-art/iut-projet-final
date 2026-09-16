@@ -1,0 +1,8 @@
+<div class="flex gap-2 overflow-x-auto hide-scrollbar mb-4 pb-1">
+  <a href="{{ url_for('admin') }}" class="chip {{ 'active' if request.endpoint == 'admin' }}"><i class="fas fa-chart-line"></i> Dashboard</a>
+  <a href="{{ url_for('admin_payments') }}" class="chip {{ 'active' if request.endpoint == 'admin_payments' }}"><i class="fas fa-money-bill-transfer"></i> Dépôts</a>
+  <a href="{{ url_for('admin_withdrawals') }}" class="chip {{ 'active' if request.endpoint == 'admin_withdrawals' }}"><i class="fas fa-hand-holding-dollar"></i> Retraits</a>
+  <a href="{{ url_for('admin_users') }}" class="chip {{ 'active' if request.endpoint == 'admin_users' }}"><i class="fas fa-users"></i> Utilisateurs</a>
+  <a href="{{ url_for('admin_promotions') }}" class="chip {{ 'active' if request.endpoint == 'admin_promotions' }}"><i class="fas fa-bullhorn"></i> Bannières</a>
+  <a href="{{ url_for('admin_settings') }}" class="chip {{ 'active' if request.endpoint == 'admin_settings' }}"><i class="fas fa-gear"></i> Réglages</a>
+</div>

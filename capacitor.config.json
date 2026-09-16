@@ -1,0 +1,21 @@
+{
+  "appId": "cm.iutbet.app",
+  "appName": "IUT Bet",
+  "webDir": "www",
+  "server": {
+    "url": "https://gianny.pythonanywhere.com",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#0a0e17",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    }
+  }
+}

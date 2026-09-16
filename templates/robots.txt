@@ -1,5 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://iut-bet.onrender.com/sitemap.xml
-

@@ -6,3 +6,15 @@ venv/
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Node / Capacitor tooling
+node_modules/
+
+# Android build outputs (keep the project itself, drop generated build junk)
+android/.gradle/
+android/app/build/
+android/build/
+android/capacitor-cordova-android-plugins/build/
+android/local.properties
+*.apk
+*.aab

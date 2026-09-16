@@ -29,13 +29,18 @@ os.environ.setdefault('FLASK_ENV', 'production')
 # Désactiver le debug
 os.environ.setdefault('FLASK_DEBUG', '0')
 
-# Vars spécifiques à ce projet
-# Exemple (laissez vides ici et configurez via l'interface PythonAnywhere):
-os.environ.setdefault('PAWAPAY_API_TOKEN', '')
-os.environ.setdefault('PAWAPAY_BASE', '')
-os.environ.setdefault('MY_WEBHOOK_URL', '')
-# Clé secrète pour Flask sessions (remplacez en production)
-os.environ.setdefault('SECRET_KEY', 'change_me_in_prod')
+# Vars spécifiques à ce projet — configurez les vraies valeurs via
+# PythonAnywhere > Web > Environment variables (ne mettez jamais de secret
+# en clair ici, ce fichier est versionné).
+os.environ.setdefault('SECRET_KEY', '')
+os.environ.setdefault('ADMIN_PASSWORD', '')
+os.environ.setdefault('CAMPAY_APP_USERNAME', '')
+os.environ.setdefault('CAMPAY_APP_PASSWORD', '')
+os.environ.setdefault('CAMPAY_BASE_URL', 'https://www.campay.net')
+os.environ.setdefault('MAVIANCE_API_KEY', '')
+os.environ.setdefault('MAVIANCE_API_SECRET', '')
+os.environ.setdefault('MAVIANCE_PAYMENT_ITEM', '')
+os.environ.setdefault('MAVIANCE_BASE_URL', 'https://s3p.smobilpay.com')
 
 # Si vous utilisez une base de données externe vous pouvez définir DATABASE_URL
 # os.environ.setdefault('DATABASE_URL', 'sqlite:////home/<PA_USER>/iut_bet_project_final/data/iutbet.db')

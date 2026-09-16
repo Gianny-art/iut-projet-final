@@ -1,122 +1,136 @@
 {% extends 'base_v2.html' %}
 {% block content %}
-<div class="bg-white rounded-lg p-6">
-  <h1 class="text-2xl font-bold">Matchs</h1>
-  <div class="mt-4 flex flex-col md:flex-row md:items-center gap-3">
-    <select id="filter-discipline" class="p-2 border rounded">
-      <option value="">Toutes les disciplines</option>
-      <option>Football</option>
-      <option>Basketball</option>
-      <option>Volley-ball</option>
-      <option>Tennis</option>
-      <option>Handball</option>
-    </select>
-    <select id="filter-competition" class="p-2 border rounded">
-      <option value="">Toutes les compétitions</option>
-      <option>Coupe du Directeur</option>
-      <option>Rally de Dschang</option>
-      <option>Coupe du Doyen</option>
-      <option>Jeux Universitaires</option>
-    </select>
-    <button onclick="loadMatches()" class="px-3 py-2 bg-indigo-600 text-white rounded">Filtrer</button>
+{% set sport_icons = {'Football':'fa-futbol','Basketball':'fa-basketball','Volleyball':'fa-volleyball','Handball':'fa-hand-fist'} %}
+{% set sport_class = {'Football':'football','Basketball':'basketball','Volleyball':'volleyball','Handball':'handball'} %}
+
+<div class="px-4">
+  <h1 class="text-xl font-bold mb-3">Tous les matchs</h1>
+
+  <div class="flex gap-2 overflow-x-auto hide-scrollbar pb-3" id="discipline-chips">
+    <button class="chip" data-value="">Tous les sports</button>
+    {% for d in disciplines %}
+    <button class="chip" data-value="{{ d }}"><i class="fas {{ sport_icons[d] }}"></i> {{ d }}</button>
+    {% endfor %}
   </div>
 
-  <div id="matches-list" class="mt-6 grid md:grid-cols-2 gap-4"></div>
+  <div class="flex gap-2 overflow-x-auto hide-scrollbar pb-4" id="status-chips">
+    <button class="chip active" data-value="">Tous</button>
+    <button class="chip" data-value="live"><span class="live-dot mr-1"></span>En direct</button>
+    <button class="chip" data-value="scheduled">À venir</button>
+    <button class="chip" data-value="finished">Terminés</button>
+  </div>
+
+  <div id="matches-list" class="grid gap-3 pb-6"></div>
 </div>
 
 <script>
+const sportIcons = {Football:'fa-futbol', Basketball:'fa-basketball', Volleyball:'fa-volleyball', Handball:'fa-hand-fist'};
+const sportClass = {Football:'football', Basketball:'basketball', Volleyball:'volleyball', Handball:'handball'};
+let currentDiscipline = getQueryParam('discipline');
+let currentStatus = '';
+const currentCompetition = getQueryParam('competition');
+
+function getQueryParam(name){
+  return new URLSearchParams(window.location.search).get(name) || '';
+}
+
+function statusBadge(m){
+  if(m.status === 'live') return '<span class="status-badge status-live"><span class="live-dot"></span> Live</span>';
+  if(m.status === 'halftime') return '<span class="status-badge status-halftime">Mi-temps</span>';
+  if(m.status === 'finished') return '<span class="status-badge status-finished">Terminé</span>';
+  return '<span class="status-badge status-scheduled">À venir</span>';
+}
+
 async function loadMatches() {
-  const d = document.getElementById('filter-discipline').value;
-  const c = document.getElementById('filter-competition').value;
   const params = new URLSearchParams();
-  if (d) params.append('discipline', d);
-  if (c) params.append('competition', c);
+  if (currentDiscipline) params.append('discipline', currentDiscipline);
+  if (currentStatus) params.append('status', currentStatus);
+  if (currentCompetition) params.append('competition', currentCompetition);
   const res = await fetch('/api/matches?' + params.toString());
   const matches = await res.json();
   const list = document.getElementById('matches-list');
   list.innerHTML = '';
+  if(!matches.length){
+    list.innerHTML = '<div class="empty-state"><i class="fas fa-calendar-xmark"></i>Aucun match trouvé pour ce filtre.</div>';
+    return;
+  }
   for (const m of matches) {
-    const el = document.createElement('div');
-    el.className = 'p-4 bg-white rounded shadow flex justify-between items-center';
+    const el = document.createElement('a');
+    el.href = '/match/' + m.id;
+    el.className = 'match-card touch-scale block';
+    const icon = sportIcons[m.discipline] || 'fa-futbol';
+    const cls = sportClass[m.discipline] || 'football';
+    const banner = m.image
+      ? `<div class="sport-banner" style="width:4.5rem;height:4.5rem;margin-bottom:0;flex-shrink:0;background-image:url('/uploads/${m.image}');background-size:cover;background-position:center"></div>`
+      : `<div class="sport-banner ${cls}" style="width:4.5rem;height:4.5rem;margin-bottom:0;flex-shrink:0"><i class="fas ${icon}"></i></div>`;
     el.innerHTML = `
-      <div>
-        <div class="text-sm text-gray-500">${m.competition}</div>
-        <div class="text-sm text-indigo-600" data-match-time="${m.start_time}" data-match-disc="${m.discipline}">
-          Chargement du temps...
-        </div>
-        <div class="font-bold text-lg">${m.team_a} <span class="text-indigo-600">vs</span> ${m.team_b}</div>
-        <div class="text-sm text-gray-700 mt-2">${m.title}</div>
-        ${m.status === 'finished' ? `
-          <div class="text-sm mt-1">
-            <span class="font-bold">Score final:</span> ${m.score_a} - ${m.score_b}
+      <div class="flex gap-3">
+        ${banner}
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs text-[var(--text-muted)] truncate">${m.competition}</span>
+            ${statusBadge(m)}
           </div>
-        ` : ''}
-      </div>
-      <div class="text-right">
-        <div class="text-sm">1: ${Number(m.odds_a).toFixed(2)}</div>
-        <div class="text-sm">X: ${Number(m.odds_x).toFixed(2)}</div>
-        <div class="text-sm">2: ${Number(m.odds_b).toFixed(2)}</div>
-        <a href="/match/${m.id}" class="mt-2 inline-block px-3 py-1 bg-indigo-600 text-white rounded">Suivre</a>
+          <div class="font-bold truncate">${m.team_a} <span class="text-[var(--text-muted)] font-normal">vs</span> ${m.team_b}</div>
+          <div class="text-xs text-[var(--text-muted)] mt-1" data-match-time="${m.start_time}" data-match-disc="${m.discipline}">Chargement…</div>
+          ${m.status === 'finished' ? `<div class="text-sm mt-1 font-bold">Score final : ${m.score_a} - ${m.score_b}</div>` : `
+          <div class="odds-row mt-2">
+            <div class="odds-btn"><span class="label">1</span><span class="value">${Number(m.odds_a).toFixed(2)}</span></div>
+            <div class="odds-btn"><span class="label">X</span><span class="value">${Number(m.odds_x).toFixed(2)}</span></div>
+            <div class="odds-btn"><span class="label">2</span><span class="value">${Number(m.odds_b).toFixed(2)}</span></div>
+          </div>`}
+        </div>
       </div>
     `;
     list.appendChild(el);
   }
+  updateMatchTimes();
 }
 
-function getQueryParam(name){
-  const params = new URLSearchParams(window.location.search);
-  return params.get(name) || '';
-}
-
-// Fonction pour calculer et afficher le temps restant
+const DURATIONS = {Football: 90, Basketball: 40, Volleyball: 45, Handball: 60, Default: 60};
 function updateMatchTimes() {
-  const timeEls = document.querySelectorAll('[data-match-time]');
-  const durations = {
-    'Football': 90,
-    'Basketball': 40,
-    'Rally': 180,
-    'Tennis': 180,
-    'Handball': 60,
-    'Default': 120
-  };
-
-  timeEls.forEach(el => {
+  document.querySelectorAll('[data-match-time]').forEach(el => {
     const startTime = new Date(el.dataset.matchTime);
-    const disc = el.dataset.matchDisc || 'Default';
-    const duration = durations[disc] || durations.Default;
+    const duration = DURATIONS[el.dataset.matchDisc] || DURATIONS.Default;
     const endTime = new Date(startTime.getTime() + duration * 60000);
     const now = new Date();
-
     if (now < startTime) {
-      const diff = startTime - now;
-      const minutes = Math.floor(diff / 60000);
+      const minutes = Math.floor((startTime - now) / 60000);
       const hours = Math.floor(minutes / 60);
-      if (hours > 24) {
-        el.textContent = `Débute dans ${Math.floor(hours / 24)}j`;
-      } else if (hours > 0) {
-        el.textContent = `Débute dans ${hours}h`;
-      } else {
-        el.textContent = `Débute dans ${minutes}min`;
-      }
+      el.textContent = hours > 24 ? `Débute dans ${Math.floor(hours/24)}j` : hours > 0 ? `Débute dans ${hours}h` : `Débute dans ${minutes}min`;
     } else if (now < endTime) {
-      const diff = endTime - now;
-      const minutes = Math.floor(diff / 60000);
-      el.textContent = `Temps restant: ${minutes}min`;
+      el.textContent = `Temps restant: ${Math.floor((endTime - now) / 60000)}min`;
     } else {
       el.textContent = 'Terminé';
     }
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const d = getQueryParam('discipline');
-  const c = getQueryParam('competition');
-  if(d) document.getElementById('filter-discipline').value = d;
-  if(c) document.getElementById('filter-competition').value = c;
-  loadMatches().then(() => {
-    updateMatchTimes();
-    setInterval(updateMatchTimes, 60000); // update every minute
+function wireChips(containerId, onSelect){
+  const container = document.getElementById(containerId);
+  container.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      container.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      onSelect(chip.dataset.value);
+      loadMatches();
+    });
   });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if(currentDiscipline){
+    document.querySelectorAll('#discipline-chips .chip').forEach(c => {
+      if(c.dataset.value === currentDiscipline) c.classList.add('active'); else c.classList.remove('active');
+    });
+  } else {
+    document.querySelector('#discipline-chips .chip').classList.add('active');
+  }
+  wireChips('discipline-chips', v => currentDiscipline = v);
+  wireChips('status-chips', v => currentStatus = v);
+  loadMatches();
+  setInterval(updateMatchTimes, 60000);
+  setInterval(loadMatches, 20000);
 });
 </script>
 {% endblock %}

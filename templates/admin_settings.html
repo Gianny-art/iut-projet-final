@@ -1,0 +1,42 @@
+{% extends 'base_v2.html' %}
+{% block content %}
+<div class="px-4">
+  <h1 class="text-xl font-bold mb-4">Réglages</h1>
+  {% include '_admin_nav.html' %}
+
+  <div class="card max-w-lg">
+    <form method="post" class="space-y-4">
+      <div class="form-group">
+        <label class="form-label">Fournisseur de paiement actif</label>
+        <select name="active_payment_provider" class="form-select">
+          <option value="manual" {{ 'selected' if settings.active_payment_provider == 'manual' }}>Manuel (validation admin)</option>
+          <option value="campay" {{ 'selected' if settings.active_payment_provider == 'campay' }} {{ 'disabled' if 'campay' not in available }}>
+            Campay {{ '' if 'campay' in available else '(clés .env manquantes)' }}
+          </option>
+          <option value="maviance" {{ 'selected' if settings.active_payment_provider == 'maviance' }} {{ 'disabled' if 'maviance' not in available }}>
+            Maviance {{ '' if 'maviance' in available else '(clés .env manquantes)' }}
+          </option>
+        </select>
+        <p class="text-xs text-[var(--text-muted)] mt-1">Détermine quel fournisseur traite les nouveaux dépôts/retraits. Renseignez les clés API dans <code>.env</code> pour activer Campay ou Maviance.</p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Commission sur les retraits (%)</label>
+        <input type="number" step="0.1" min="0" max="20" name="withdrawal_commission_pct" value="{{ settings.withdrawal_commission_pct }}" class="form-input">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Numéro Mobile Money de secours (paiement manuel)</label>
+        <input type="text" name="support_phone" value="{{ settings.support_phone }}" placeholder="655260684" class="form-input">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Slogan de la page d'accueil</label>
+        <input type="text" name="site_tagline" value="{{ settings.site_tagline }}" class="form-input">
+      </div>
+
+      <button class="btn btn-gold w-full">Enregistrer</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

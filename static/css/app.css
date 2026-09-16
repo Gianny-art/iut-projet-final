@@ -1,0 +1,256 @@
+/* ==========================================================================
+   IUT Bet — design system
+   Dark sportsbook theme. Works alongside Tailwind's utility classes (loaded
+   via CDN in base_v2.html) — this file only defines tokens + the small set
+   of reusable components (cards, buttons, badges, forms, bottom nav) that
+   Tailwind utilities alone don't give a name to.
+   ========================================================================== */
+
+:root {
+  --bg: #0a0e17;
+  --bg-elevated: #0f1524;
+  --surface: #141b2d;
+  --surface-2: #1b2436;
+  --border: #26304a;
+  --text: #eef1f8;
+  --text-muted: #8d97af;
+  --primary: #4f46e5;
+  --primary-dark: #3730a3;
+  --primary-light: #6366f1;
+  --gold: #f5b301;
+  --gold-dark: #c98d00;
+  --success: #16c26a;
+  --danger: #ef4444;
+  --live: #ef4444;
+  --radius: 1rem;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding-bottom: 5.5rem;
+}
+
+a { color: inherit; }
+img { max-width: 100%; height: auto; }
+
+::selection { background: var(--gold); color: #1a1200; }
+
+/* Scrolling rows ---------------------------------------------------------- */
+.scroll-x {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  gap: 0.75rem;
+  padding: 0.25rem 1rem 1rem;
+  scroll-padding: 1rem;
+}
+.scroll-x > * { scroll-snap-align: start; }
+
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Cards --------------------------------------------------------------------*/
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  color: var(--text);
+}
+
+.card-gradient {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+  border-radius: var(--radius);
+}
+
+.surface { background: var(--surface); border: 1px solid var(--border); }
+.surface-2 { background: var(--surface-2); border: 1px solid var(--border); }
+
+/* Match card ---------------------------------------------------------------*/
+.match-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.match-card:active { transform: scale(0.98); }
+.match-card:hover { border-color: var(--primary-light); }
+
+.sport-banner {
+  height: 5.5rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  color: white;
+  margin-bottom: 0.75rem;
+}
+.sport-banner.football { background: linear-gradient(135deg,#16a34a,#065f46); }
+.sport-banner.basketball { background: linear-gradient(135deg,#ea580c,#7c2d12); }
+.sport-banner.volleyball { background: linear-gradient(135deg,#0ea5e9,#0c4a6e); }
+.sport-banner.handball { background: linear-gradient(135deg,#db2777,#701a3f); }
+
+/* Odds buttons ---------------------------------------------------------------*/
+.odds-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.odds-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  padding: 0.5rem 0.25rem;
+  text-align: center;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.odds-btn .label { font-size: 0.7rem; color: var(--text-muted); display: block; }
+.odds-btn .value { font-weight: 700; color: var(--gold); font-size: 1rem; }
+.odds-btn:hover, .odds-btn.selected { background: var(--primary); border-color: var(--primary); }
+.odds-btn.selected .value, .odds-btn:hover .value { color: white; }
+
+/* Chips / filters ---------------------------------------------------------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.chip.active { background: var(--gold); border-color: var(--gold); color: #1a1200; }
+
+/* Status badges --------------------------------------------------------------*/
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.status-live { background: rgba(239,68,68,0.15); color: #ff6b6b; }
+.status-scheduled { background: rgba(79,70,229,0.18); color: #a5b4fc; }
+.status-halftime { background: rgba(245,179,1,0.18); color: var(--gold); }
+.status-finished { background: rgba(141,151,175,0.15); color: var(--text-muted); }
+
+.live-dot {
+  width: 0.4rem; height: 0.4rem; border-radius: 999px; background: var(--live);
+  display: inline-block; animation: pulse 1.4s infinite;
+}
+
+/* Bottom navigation ---------------------------------------------------------*/
+.bottom-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: space-around; align-items: center;
+  padding: 0.5rem 0.25rem calc(0.5rem + env(safe-area-inset-bottom));
+}
+.nav-icon {
+  display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+  text-decoration: none; color: var(--text-muted); font-size: 0.68rem;
+  transition: color 0.15s; min-width: 3.2rem;
+}
+.nav-icon i { font-size: 1.15rem; }
+.nav-icon.active, .nav-icon:active { color: var(--gold); }
+
+/* Buttons --------------------------------------------------------------------*/
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0.75rem 1.5rem; border-radius: 0.6rem; font-weight: 600;
+  transition: all 0.15s; border: none; cursor: pointer; font-size: 0.9rem;
+}
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-light); }
+.btn-gold { background: var(--gold); color: #1a1200; }
+.btn-gold:hover { background: #ffc61a; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-outline:hover { border-color: var(--primary-light); }
+.btn-danger { background: var(--danger); color: white; }
+.btn-sm { padding: 0.4rem 0.8rem; font-size: 0.78rem; }
+
+/* Forms ------------------------------------------------------------------- */
+.form-group { margin-bottom: 1rem; }
+.form-label { display: block; margin-bottom: 0.4rem; color: var(--text); font-weight: 500; font-size: 0.85rem; }
+.form-input, .form-select {
+  width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border);
+  border-radius: 0.6rem; background: var(--surface-2); color: var(--text);
+  transition: border-color 0.15s;
+}
+.form-input::placeholder { color: var(--text-muted); }
+.form-input:focus, .form-select:focus { outline: none; border-color: var(--primary-light); }
+
+/* Toasts / flash ------------------------------------------------------------*/
+.toast {
+  position: fixed; bottom: 5.5rem; left: 1rem; right: 1rem;
+  padding: 0.9rem 1rem; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 0.75rem; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 60;
+  animation: fadeIn 0.25s ease-out;
+}
+.toast.success { border-color: var(--success); }
+.toast.error { border-color: var(--danger); }
+
+/* Empty / skeleton states ----------------------------------------------------*/
+.empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); }
+.empty-state i { font-size: 2rem; margin-bottom: 0.75rem; display: block; color: var(--border); }
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 37%, var(--surface) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-loading 1.4s ease infinite;
+  border-radius: 0.5rem;
+}
+@keyframes skeleton-loading { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+/* Misc animations -------------------------------------------------------------*/
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.fade-in { animation: fadeIn 0.3s ease-out forwards; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading { position: relative; color: transparent !important; pointer-events: none; }
+.loading::after {
+  content: ""; position: absolute; left: calc(50% - 0.5rem); top: calc(50% - 0.5rem);
+  width: 1rem; height: 1rem; border: 2px solid rgba(255,255,255,0.25);
+  border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+
+.touch-scale { transition: transform 0.15s; }
+.touch-scale:active { transform: scale(0.96); }
+
+.gradient-primary { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); }
+.gradient-gold { background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%); }
+
+/* Hero slider ------------------------------------------------------------- */
+.slides { display: flex; transition: transform 0.4s ease; }
+.slide { min-width: 100%; height: 180px; background-size: cover; background-position: center; position: relative; }
+.slide::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(10,14,23,0.85), rgba(10,14,23,0.1)); }
+
+/* Tables (admin) ------------------------------------------------------------*/
+.table-auto th { text-align: left; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.table-auto td, .table-auto th { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); }
+
+@media (max-width: 768px) {
+  .scroll-x > * { flex: 0 0 85%; }
+}

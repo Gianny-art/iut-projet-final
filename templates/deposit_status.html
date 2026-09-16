@@ -1,228 +1,31 @@
 {% extends 'base_v2.html' %}
 {% block content %}
-
-<div class="min-h-[80vh] px-4 py-6">
-  <!-- Carte principale -->
-  <div class="card max-w-md mx-auto">
-    <!-- En-tête avec icône -->
-    <div class="text-center mb-6">
-      {% if info.status == 'FINISHED' %}
-      <div class="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-        <i class="fas fa-check text-3xl text-green-500"></i>
-      </div>
-      {% elif info.status == 'PENDING' %}
-      <div class="w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-4 animate-pulse">
-        <i class="fas fa-clock text-3xl text-yellow-500"></i>
-      </div>
-      {% else %}
-      <div class="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center mx-auto mb-4">
-        <i class="fas fa-receipt text-3xl text-indigo-500"></i>
-      </div>
-      {% endif %}
-
-      <h2 class="text-2xl font-bold">
-        {% if info.status == 'FINISHED' %}
-        Dépôt confirmé
-        {% elif info.status == 'PENDING' %}
-        En attente de confirmation
-        {% else %}
-        Statut du dépôt
-        {% endif %}
-      </h2>
+<div class="px-4">
+  <div class="card text-center py-8" id="statusCard">
+    <div id="iconPending" class="{{ '' if payment['status']=='PENDING' else 'hidden' }}">
+      <i class="fas fa-clock text-4xl text-[var(--gold)] mb-3 animate-pulse"></i>
+      <h2 class="text-xl font-bold">Paiement en attente</h2>
+    </div>
+    <div id="iconSuccess" class="{{ '' if payment['status'] in ('FINISHED','SUCCESSFUL') else 'hidden' }}">
+      <i class="fas fa-circle-check text-4xl text-[var(--success)] mb-3"></i>
+      <h2 class="text-xl font-bold">Dépôt confirmé !</h2>
+    </div>
+    <div id="iconFailed" class="{{ '' if payment['status'] in ('FAILED','REJECTED') else 'hidden' }}">
+      <i class="fas fa-circle-xmark text-4xl text-red-400 mb-3"></i>
+      <h2 class="text-xl font-bold">Paiement échoué</h2>
     </div>
 
-    <!-- Détails de la transaction -->
-    <div class="space-y-4">
-      <!-- ID de transaction -->
-      <div class="p-4 bg-gray-50 rounded-lg">
-        <div class="text-sm text-gray-500 mb-1">ID de transaction</div>
-        <div class="font-medium flex items-center gap-2">
-          {{ txid }}
-          <button onclick="navigator.clipboard.writeText('{{ txid }}')" 
-                  class="text-indigo-600 hover:text-indigo-700 transition-colors">
-            <i class="fas fa-copy"></i>
-          </button>
-        </div>
-      </div>
+    <p class="text-sm text-[var(--text-muted)] mt-2">Référence : <span class="font-mono">{{ payment['provider_tx_id'] }}</span></p>
+    <p class="text-2xl font-bold mt-3">{{ payment['amount'] }} F</p>
 
-      <!-- Montant -->
-      <div class="p-4 bg-gray-50 rounded-lg">
-        <div class="text-sm text-gray-500 mb-1">Montant</div>
-        <div class="text-2xl font-bold text-indigo-600">
-          {{ info.amount }}F <span class="text-sm font-normal text-gray-500">({{ info.amount }} BTC)</span>
-        </div>
-      </div>
-
-      <!-- Statut -->
-      <div class="p-4 bg-gray-50 rounded-lg">
-        <div class="text-sm text-gray-500 mb-1">Statut</div>
-        <div class="flex items-center gap-2">
-          {% if info.status == 'FINISHED' %}
-          <span class="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-700">
-            <i class="fas fa-check-circle mr-1"></i>
-            Confirmé
-          </span>
-          {% elif info.status == 'PENDING' %}
-          <span class="inline-flex items-center px-3 py-1 rounded-full bg-yellow-100 text-yellow-700">
-            <i class="fas fa-clock mr-1"></i>
-            En attente
-          </span>
-          {% else %}
-          <span class="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-700">
-            {{ info.status }}
-          </span>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-
-    <!-- Actions -->
-    <div class="mt-6">
-      {% if info.status != 'FINISHED' %}
-        <div class="text-sm text-gray-600 mb-4">
-          <i class="fas fa-info-circle text-indigo-600"></i>
-          Votre paiement est en cours de traitement. <strong class="text-yellow-600">Si le dépôt ne fonctionne pas, utilisez le bouton "Instructions" ci-dessous.</strong>
-        </div>
-
-        <!-- Zone USSD / QR pour effectuer le paiement depuis le téléphone -->
-        <div class="bg-white p-4 rounded-lg mb-4">
-          <h4 class="font-semibold mb-2">Payer maintenant</h4>
-          <div class="flex items-center gap-3 mb-3">
-            <div class="p-3 bg-gray-100 rounded">
-              <div class="text-xs text-gray-500">Code USSD</div>
-              <div id="statusUSSD" class="font-mono mt-1">{{ '#' }}</div>
-            </div>
-            <div>
-              <a id="statusPayBtn" class="btn btn-orange hidden px-4 py-2 mr-2" href="#">📞 Payer maintenant</a>
-              <button id="statusCopy" class="px-3 py-2 border rounded">Copier</button>
-              <button class="ml-2 px-3 py-2 rounded-md bg-yellow-400 text-black font-medium" id="btnManual" onclick="selectOperator('MANUAL')">
-                <i class="fas fa-info-circle mr-1"></i> Instructions
-              </button>
-            </div>
-          </div>
-          <div id="manualInstructions" class="mt-3 hidden p-4 rounded border-l-4 border-yellow-400 bg-yellow-50 text-yellow-900">
-            <strong>Instructions manuelles :</strong>
-            <p class="mt-2 font-medium">Utilisez cette option si votre dépôt n'a pas été effectué automatiquement.</p>
-            <ol class="list-decimal ml-5 mt-2">
-             <li>Ouvrez l'application Téléphone de votre mobile.</li>
-              <li>Faites un depot classique sur les comptes de l'entreprise <br> <b>MTN: 654136468</b> <b>ORANGE: 655260684</b></li>
-              <li>Validez et entrez votre code secret si demandé.</li>
-            </ol>
-            <p class="mt-2 text-xs">Si nécessaire, contactez le support pour assistance.</p>
-          </div>
-          </div>
-
-          <!-- Bouton d'instructions (remplace le QR) -->
-          <div class="mt-3">
-            <button id="statusManualBtn" class="px-4 py-2 rounded-md bg-yellow-400 text-black font-medium shadow-sm hover:bg-yellow-500 transition inline-flex items-center">
-              <i class="fas fa-info-circle mr-2"></i>
-              Instructions de paiement
-            </button>
-            <span class="ml-3 inline-flex items-center px-2 py-1 rounded text-sm font-medium bg-red-100 text-red-700">
-              <strong>En cas d'échec du dépôt</strong>
-            </span>
-          </div>
-        </div>
-
-        <!-- Bouton de simulation en mode sandbox -->
-        <form method="post" action="{{ url_for('webhook_pawapay') }}" class="mt-4">
-          <input type="hidden" name="externalId" value="{{ txid }}">
-          <input type="hidden" name="status" value="SUCCESSFUL">
-          <button class="btn gradient-success text-white w-full">
-            <i class="fas fa-check-circle mr-2"></i>
-            Simuler confirmation (sandbox)
-          </button>
-        </form>
-      {% else %}
-        <div class="text-center">
-          <a href="{{ url_for('index') }}" class="btn btn-primary">
-            <i class="fas fa-home mr-2"></i>
-            Retour à l'accueil
-          </a>
-        </div>
-      {% endif %}
+    <div class="flex gap-2 justify-center mt-6">
+      <a href="{{ url_for('index') }}" class="btn btn-outline">Accueil</a>
+      <a href="{{ url_for('deposit_page') }}" class="btn btn-gold">Nouveau dépôt</a>
     </div>
   </div>
-
-  {% if info.status != 'FINISHED' %}
-  <script>
-    // Rafraîchissement automatique supprimé — la page reste stable pour permettre à l'utilisateur d'agir sans être dérouté.
-
-    // Générer USSD si on a les infos
-    (function(){
-      const op = '{{ info.operator or '' }}';
-      const amt = '{{ info.amount or '' }}';
-      const phone = '{{ info.phone or '' }}';
-      function genUSD(op, phone, amt){
-        // ORANGE: receiver-based USSD
-        if(op == 'ORANGE') return `#150*1*1*655260684*${amt}*2*1#`;
-        // MTN: *126*<numero>*<montant># (utilise le numéro de l'utilisateur)
-        if(op == 'MTN') return `*126*${phone}*${amt}#`;
-        // Default / unknown: return a neutral string prompting manual instruction
-        return null;
-      }
-
-      function selectOperator(mode){
-        const manual = document.getElementById('manualInstructions');
-        const ussdArea = document.getElementById('statusUSSD');
-        const payBtn = document.getElementById('statusPayBtn');
-        if(mode === 'MANUAL'){
-          // Show manual instructions
-          manual.classList.remove('hidden');
-          payBtn.classList.add('hidden');
-          ussdArea.innerText = 'Voir les instructions ci-dessous';
-        } else {
-          manual.classList.add('hidden');
-        }
-      }
-
-      if(op && amt){
-        const code = genUSD(op, phone, amt);
-        const ussdEl = document.getElementById('statusUSSD');
-        const btn = document.getElementById('statusPayBtn');
-        const manualBtn = document.getElementById('statusManualBtn');
-
-        if(code){
-          ussdEl.innerText = code;
-          const uri = 'tel:' + encodeURIComponent(code);
-          btn.href = uri; btn.classList.remove('hidden');
-          document.getElementById('statusCopy').onclick = ()=>{ navigator.clipboard.writeText(code); alert('USSD copié'); };
-          // No QR shown anymore — we provide a clear instructions button instead
-
-          // auto-dial on mobile
-          const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
-          if(isMobile){ setTimeout(()=>{ window.location.href = uri; }, 600); }
-
-          if(manualBtn){
-            // keep manual button available, normal styling
-            manualBtn.classList.remove('hidden');
-            manualBtn.classList.remove('ring-2','ring-red-300');
-          }
-        } else {
-          // unknown operator -> show manual option automatically and highlight it
-          ussdEl.innerText = 'Opérateur non standard — utilisez les instructions manuelles.';
-          document.getElementById('statusCopy').onclick = ()=>{ alert('Veuillez suivre les instructions manuelles ci-dessous.'); };
-          btn.classList.add('hidden');
-          if(manualBtn){
-            manualBtn.classList.remove('hidden');
-            manualBtn.classList.add('ring-2','ring-red-300');
-          }
-          selectOperator('MANUAL');
-        }
-      }
-
-      // Hook manual buttons (both the local one and main one)
-      const btnManual = document.getElementById('btnManual');
-      const statusManualBtn = document.getElementById('statusManualBtn');
-      if(btnManual) btnManual.onclick = ()=> selectOperator('MANUAL');
-      if(statusManualBtn) statusManualBtn.onclick = ()=> selectOperator('MANUAL');
-
-      // Recharger la page après 60 secondes pour actualiser le statut si nécessaire
-      setTimeout(() => { window.location.reload(); }, 60000);
-
-    })();
-  </script>
-  {% endif %}
 </div>
 
+{% if payment['status'] == 'PENDING' %}
+<script>setInterval(() => location.reload(), 4000);</script>
+{% endif %}
 {% endblock %}

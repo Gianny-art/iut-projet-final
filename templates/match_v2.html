@@ -1,91 +1,127 @@
 {% extends 'base_v2.html' %}
 {% block content %}
-<div class="grid md:grid-cols-3 gap-6 bg-white rounded-lg p-6 shadow">
-  <div class="md:col-span-2">
-    <h2 class="text-2xl font-bold">{{ match['team_a'] }} <span class="text-indigo-600">vs</span> {{ match['team_b'] }}</h2>
-    <div class="text-sm text-gray-500 mt-1">{{ match['competition'] }}</div>
-    <div class="text-sm text-indigo-600" id="match-timer" 
-         data-match-time="{{ match['start_time'] }}" 
-         data-match-disc="{{ match['discipline'] }}">
-      Chargement du temps...
+{% set sport_icons = {'Football':'fa-futbol','Basketball':'fa-basketball','Volleyball':'fa-volleyball','Handball':'fa-hand-fist'} %}
+{% set sport_class = {'Football':'football','Basketball':'basketball','Volleyball':'volleyball','Handball':'handball'} %}
+
+<div class="px-4 grid md:grid-cols-3 gap-4">
+  <div class="md:col-span-2 card">
+    {% if match['image'] %}
+    <div class="sport-banner" style="height:9rem;background-image:url('{{ url_for('uploaded_file', filename=match['image']) }}');background-size:cover;background-position:center"></div>
+    {% else %}
+    <div class="sport-banner {{ sport_class.get(match['discipline'],'football') }}"><i class="fas {{ sport_icons.get(match['discipline'],'fa-futbol') }}"></i></div>
+    {% endif %}
+    <div class="flex items-center justify-between">
+      <span class="text-xs text-[var(--text-muted)]">{{ match['competition'] }} · {{ match['discipline'] }}</span>
+      {% if match['status'] == 'live' %}<span class="status-badge status-live"><span class="live-dot"></span> Live</span>
+      {% elif match['status'] == 'halftime' %}<span class="status-badge status-halftime">Mi-temps</span>
+      {% elif match['status'] == 'finished' %}<span class="status-badge status-finished">Terminé</span>
+      {% else %}<span class="status-badge status-scheduled">À venir</span>{% endif %}
     </div>
-    <div class="mt-4">
-      <div class="text-lg">Score: <strong id="live-score">{{ match['score_a'] }} - {{ match['score_b'] }}</strong></div>
-      {% if match['status'] == 'finished' %}
-        <div class="text-sm mt-1 font-bold">Match terminé</div>
-      {% endif %}
+    <h1 class="text-2xl font-bold mt-2">{{ match['team_a'] }} <span class="text-[var(--text-muted)] font-normal">vs</span> {{ match['team_b'] }}</h1>
+    <div class="text-sm text-[var(--gold)] mt-1" id="match-timer" data-match-time="{{ match['start_time'] }}" data-match-disc="{{ match['discipline'] }}">Chargement…</div>
+
+    <div class="mt-4 surface-2 rounded-xl p-4 text-center">
+      <div class="text-xs text-[var(--text-muted)] mb-1">Score</div>
+      <div class="text-3xl font-extrabold" id="live-score">{{ match['score_a'] }} - {{ match['score_b'] }}</div>
     </div>
-    <div class="mt-6">
-      <h3 class="font-semibold">Détails du match</h3>
-      <p class="text-sm text-gray-700 mt-2">{{ match['title'] }}</p>
-    </div>
+
+    {% if match['title'] %}
+    <p class="text-sm text-[var(--text-muted)] mt-4">{{ match['title'] }}</p>
+    {% endif %}
+
     {% if session.user %}
-    <div class="mt-4" id="user-bets">
-      <!-- Les paris de l'utilisateur seront chargés ici -->
-    </div>
+    <div class="mt-4" id="user-bets"></div>
     {% endif %}
   </div>
-  <div class="p-4 bg-gray-50 rounded-lg">
-    <h3 class="font-semibold">Placer une mise</h3>
+
+  <div class="card h-fit">
+    <h3 class="font-semibold mb-3">Placer une mise</h3>
     {% if match['status'] != 'finished' %}
-    <form id="betForm" class="mt-3">
+    {% if session.user %}
+    <form id="betForm">
       <input type="hidden" name="match_id" value="{{ match['id'] }}">
-      <label class="text-sm">Choix</label>
-      <select name="choice" class="w-full p-2 rounded border">
-        <option value="1">1 — {{ '%.2f'|format(match['odds_a']) }}</option>
-        <option value="X">X — {{ '%.2f'|format(match['odds_x']) }}</option>
-        <option value="2">2 — {{ '%.2f'|format(match['odds_b']) }}</option>
-      </select>
-      <label class="text-sm mt-2">Montant (100 - 5000 F)</label>
-      <input type="number" name="amount" min="100" max="5000" value="100" class="w-full p-2 rounded border">
-      <button class="mt-3 w-full px-3 py-2 bg-indigo-600 text-white rounded" type="button" onclick="placeBet()">Placer la mise</button>
+      <label class="form-label">Votre pronostic</label>
+      <div class="odds-row mb-3" id="choice-buttons">
+        <div class="odds-btn" data-choice="1"><span class="label">1</span><span class="value">{{ '%.2f'|format(match['odds_a']) }}</span></div>
+        <div class="odds-btn" data-choice="X"><span class="label">X</span><span class="value">{{ '%.2f'|format(match['odds_x']) }}</span></div>
+        <div class="odds-btn" data-choice="2"><span class="label">2</span><span class="value">{{ '%.2f'|format(match['odds_b']) }}</span></div>
+      </div>
+      <input type="hidden" name="choice" id="choiceInput">
+      <label class="form-label">Montant (100 — 5000 F)</label>
+      <input type="number" name="amount" id="amountInput" min="100" max="5000" value="500" class="form-input">
+      <div class="text-sm text-[var(--text-muted)] mt-2">Gain potentiel : <span class="font-semibold text-[var(--gold)]" id="potentialWin">—</span></div>
+      <button class="btn btn-gold w-full mt-4" type="button" onclick="placeBet()">Parier maintenant</button>
     </form>
     {% else %}
-  <div class="p-4 bg-red-50 rounded">Match terminé — les paris sont clos.</div>
-{% endif %}
+    <p class="text-sm text-[var(--text-muted)] mb-3">Connectez-vous pour parier sur ce match.</p>
+    <a href="{{ url_for('login') }}" class="btn btn-gold w-full">Se connecter</a>
+    {% endif %}
+    {% else %}
+    <div class="empty-state"><i class="fas fa-flag-checkered"></i>Match terminé — les paris sont clos.</div>
+    {% endif %}
     <div id="betResult" class="mt-3 text-sm"></div>
   </div>
 </div>
 
 <script>
-// Fonction pour le compte à rebours
+const ODDS = {'1': {{ match['odds_a'] }}, 'X': {{ match['odds_x'] }}, '2': {{ match['odds_b'] }}};
+
+document.querySelectorAll('#choice-buttons .odds-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#choice-buttons .odds-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    document.getElementById('choiceInput').value = btn.dataset.choice;
+    updatePotentialWin();
+  });
+});
+document.getElementById('amountInput')?.addEventListener('input', updatePotentialWin);
+
+function updatePotentialWin(){
+  const choice = document.getElementById('choiceInput').value;
+  const amount = parseInt(document.getElementById('amountInput').value || '0');
+  const el = document.getElementById('potentialWin');
+  if(choice && amount > 0){
+    el.innerText = Math.floor(amount * ODDS[choice]) + ' F';
+  } else {
+    el.innerText = '—';
+  }
+}
+
+async function placeBet(){
+  const choice = document.getElementById('choiceInput').value;
+  if(!choice){ document.getElementById('betResult').innerHTML = '<div class="text-red-400">Choisissez 1, X ou 2.</div>'; return; }
+  const fd = new FormData(document.getElementById('betForm'));
+  const resp = await fetch('/place_bet', {method:'POST', body: fd});
+  const data = await resp.json();
+  const el = document.getElementById('betResult');
+  if(resp.ok){
+    el.innerHTML = '<div class="text-[var(--success)] font-medium">Mise placée ! Nouveau solde : ' + data.balance + ' F</div>';
+    showToast('Pari enregistré !', 'success');
+    setTimeout(() => location.reload(), 1200);
+  } else {
+    el.innerHTML = '<div class="text-red-400">' + (data.error || 'Erreur inconnue') + '</div>';
+    if(resp.status===401) window.location.href = '/login';
+  }
+}
+
 function updateMatchTime() {
   const el = document.getElementById('match-timer');
   const startTime = new Date(el.dataset.matchTime);
-  const durations = {
-    'Football': 90,
-    'Basketball': 40,
-    'Rally': 180,
-    'Tennis': 180,
-    'Handball': 60,
-    'Default': 120
-  };
-  const disc = el.dataset.matchDisc || 'Default';
-  const duration = durations[disc] || durations.Default;
+  const durations = {'Football': 90, 'Basketball': 40, 'Volleyball': 45, 'Handball': 60, 'Default': 60};
+  const duration = durations[el.dataset.matchDisc] || durations.Default;
   const endTime = new Date(startTime.getTime() + duration * 60000);
   const now = new Date();
-
   if (now < startTime) {
-    const diff = startTime - now;
-    const minutes = Math.floor(diff / 60000);
+    const minutes = Math.floor((startTime - now) / 60000);
     const hours = Math.floor(minutes / 60);
-    if (hours > 24) {
-      el.textContent = `Débute dans ${Math.floor(hours / 24)}j`;
-    } else if (hours > 0) {
-      el.textContent = `Débute dans ${hours}h`;
-    } else {
-      el.textContent = `Débute dans ${minutes}min`;
-    }
+    el.textContent = hours > 24 ? `Débute dans ${Math.floor(hours/24)}j` : hours > 0 ? `Débute dans ${hours}h` : `Débute dans ${minutes}min`;
   } else if (now < endTime) {
-    const diff = endTime - now;
-    const minutes = Math.floor(diff / 60000);
-    el.textContent = `Temps restant: ${minutes}min`;
+    el.textContent = `Temps restant: ${Math.floor((endTime - now) / 60000)}min`;
   } else {
     el.textContent = 'Terminé';
   }
 }
 
-// poll for live score and match status every 8 seconds
 async function fetchMatchInfo(){
   const res = await fetch('/api/matches?status=live');
   if(!res.ok) return;
@@ -93,13 +129,10 @@ async function fetchMatchInfo(){
   const my = matches.find(m => m.id === {{ match['id'] }});
   if(my){
     document.getElementById('live-score').innerText = my.score_a + ' - ' + my.score_b;
-    if(my.status === 'finished') {
-      location.reload(); // reload to show final state
-    }
+    if(my.status === 'finished') location.reload();
   }
 }
 
-// Charge les paris de l'utilisateur pour ce match
 async function loadUserBets() {
   {% if session.user %}
   try {
@@ -108,28 +141,16 @@ async function loadUserBets() {
     const bets = await res.json();
     const container = document.getElementById('user-bets');
     if(!bets.length) return;
-    
-    let html = '<h3 class="font-semibold mt-4">Vos paris sur ce match</h3>';
+    let html = '<h3 class="font-semibold mt-2 mb-2">Vos paris sur ce match</h3>';
     for(const bet of bets) {
-      const status = bet.processed ? (bet.won ? 
-        '<span class="text-green-600 font-bold">GAGNÉ!</span>' : 
-        '<span class="text-red-600 font-bold">PERDU</span>') 
-        : '<span class="text-gray-600">En attente</span>';
-      
-      html += `
-      <div class="mt-2 p-3 bg-gray-50 rounded">
-        <div>Mise: ${bet.amount}F sur ${bet.choice}</div>
-        <div class="text-sm">${status}</div>
-      </div>`;
+      const status = bet.processed ? (bet.won ? '<span class="text-[var(--success)] font-bold">GAGNÉ</span>' : '<span class="text-red-400 font-bold">PERDU</span>') : '<span class="text-[var(--text-muted)]">En attente</span>';
+      html += `<div class="surface-2 rounded-lg p-3 mb-2 flex justify-between items-center"><div>Mise : ${bet.amount}F sur ${bet.choice}</div><div class="text-sm">${status}</div></div>`;
     }
     container.innerHTML = html;
-  } catch(e) {
-    console.error('Erreur chargement paris:', e);
-  }
+  } catch(e) {}
   {% endif %}
 }
 
-// Start updates
 document.addEventListener('DOMContentLoaded', () => {
   updateMatchTime();
   setInterval(updateMatchTime, 60000);

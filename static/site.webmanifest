@@ -1,0 +1,15 @@
+{
+  "name": "IUT Bet",
+  "short_name": "IUT Bet",
+  "description": "Pronostics sportifs entre étudiants de l'IUT — football, basketball, volleyball, handball.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0e17",
+  "theme_color": "#0a0e17",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/static/uploads-app/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/static/uploads-app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/static/uploads-app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,86 +1,77 @@
 {% extends 'base_v2.html' %}
 {% block content %}
-<div class="bg-white rounded p-6">
-  <h1 class="text-2xl font-bold">Administration des matchs</h1>
+<div class="px-4">
+  <h1 class="text-xl font-bold mb-4"><i class="fas fa-shield-alt text-[var(--gold)]"></i> Administration</h1>
+  {% include '_admin_nav.html' %}
 
-  <div class="mt-4 grid md:grid-cols-3 gap-6">
-    <div class="col-span-1 bg-white rounded p-4">
-      <h3 class="font-semibold">Notifications <span id="notifBadge" class="ml-2 inline-flex items-center justify-center text-xs bg-red-600 text-white rounded-full px-2 py-0.5 hidden">0</span></h3>
-      <div id="notifList" class="mt-2 text-sm text-gray-600">Chargement…</div>
-      <div class="mt-3">
-        <a href="/admin/payments" class="px-3 py-2 bg-indigo-600 text-white rounded">Voir dépôts</a>
-        <a href="/admin/withdrawals" class="px-3 py-2 bg-green-600 text-white rounded ml-2">Voir retraits</a>
-      </div>
-    </div>
-
-    <div class="col-span-1 bg-white rounded p-4">
-      <h3 class="font-semibold">Utilisateurs connectés</h3>
-      <div id="onlineUsers" class="mt-2 text-sm text-gray-600">Chargement…</div>
-    </div>
-
-    <div class="col-span-1 bg-white rounded p-4">
-      <h3 class="font-semibold">Actions rapides</h3>
-      <div class="mt-2">
-        <button onclick="location.href='/admin/payments'" class="px-3 py-2 bg-indigo-600 text-white rounded mb-2 w-full">Gérer dépôts</button>
-        <button onclick="location.href='/admin/withdrawals'" class="px-3 py-2 bg-green-600 text-white rounded w-full">Gérer retraits</button>
-      </div>
-    </div>
+  <!-- Stats -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+    <div class="card"><div class="text-xs text-[var(--text-muted)]">Utilisateurs</div><div class="text-xl font-bold">{{ stats.total_users }}</div></div>
+    <div class="card"><div class="text-xs text-[var(--text-muted)]">En ligne</div><div class="text-xl font-bold text-[var(--success)]">{{ stats.online_now }}</div></div>
+    <div class="card"><div class="text-xs text-[var(--text-muted)]">Total misé</div><div class="text-xl font-bold">{{ '{:,}'.format(stats.total_staked).replace(',', ' ') }} F</div></div>
+    <div class="card"><div class="text-xs text-[var(--text-muted)]">Marge plateforme</div><div class="text-xl font-bold text-[var(--gold)]">{{ '{:,}'.format(stats.margin).replace(',', ' ') }} F</div></div>
+    <div class="card"><div class="text-xs text-[var(--text-muted)]">Dépôts en attente</div><div class="text-xl font-bold">{{ stats.pending_deposits }}</div></div>
+    <div class="card"><div class="text-xs text-[var(--text-muted)]">Retraits en attente</div><div class="text-xl font-bold">{{ stats.pending_withdrawals }}</div></div>
+    <div class="card"><div class="text-xs text-[var(--text-muted)]">Gains versés</div><div class="text-xl font-bold">{{ '{:,}'.format(stats.total_payout).replace(',', ' ') }} F</div></div>
+    <div class="card"><div class="text-xs text-[var(--text-muted)]">Solde plateforme</div><div class="text-xl font-bold">{{ '{:,}'.format(stats.platform_balance).replace(',', ' ') }} F</div></div>
   </div>
 
-  <div class="mt-4 grid md:grid-cols-2 gap-6">
-    <div>
-      <h3 class="font-semibold">Ajouter un match</h3>
-      <form id="form-add-match" enctype="multipart/form-data">
-        <label class="block mt-2">Titre</label>
-        <input name="title" class="w-full p-2 border rounded">
-        <label class="block mt-2">Équipe A</label>
-        <input name="team_a" class="w-full p-2 border rounded">
-        <label class="block mt-2">Équipe B</label>
-        <input name="team_b" class="w-full p-2 border rounded">
-        <label class="block mt-2">Date et heure (YYYY-MM-DD HH:MM)</label>
-        <input name="start_time" placeholder="2025-11-10 15:00" class="w-full p-2 border rounded">
-        <label class="block mt-2">Compétition</label>
-        <input name="competition" class="w-full p-2 border rounded">
-        <label class="block mt-2">Discipline</label>
-        <input name="discipline" class="w-full p-2 border rounded">
-        <label class="block mt-2">Cote 1</label>
-        <input name="odds_a" class="w-full p-2 border rounded" value="1.8">
-        <label class="block mt-2">Cote X</label>
-        <input name="odds_x" class="w-full p-2 border rounded" value="3.2">
-        <label class="block mt-2">Cote 2</label>
-        <input name="odds_b" class="w-full p-2 border rounded" value="2.0">
-        <label class="block mt-2">Image (optionnelle)</label>
-        <input type="file" name="image" class="w-full mt-1">
-        <button type="button" onclick="createMatch()" class="mt-4 px-3 py-2 bg-indigo-600 text-white rounded">Créer</button>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="card">
+      <h3 class="font-semibold mb-3">Ajouter un match</h3>
+      <form id="form-add-match" enctype="multipart/form-data" class="space-y-3">
+        <input name="title" placeholder="Titre (ex: Journée 3)" class="form-input">
+        <div class="grid grid-cols-2 gap-2">
+          <input name="team_a" placeholder="Équipe A" class="form-input" required>
+          <input name="team_b" placeholder="Équipe B" class="form-input" required>
+        </div>
+        <input name="start_time" type="datetime-local" class="form-input" required>
+        <input name="competition" placeholder="Compétition" class="form-input" required>
+        <select name="discipline" class="form-select" required>
+          {% for d in disciplines %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+        </select>
+        <div class="grid grid-cols-3 gap-2">
+          <input name="odds_a" placeholder="Cote 1" class="form-input" value="1.8">
+          <input name="odds_x" placeholder="Cote X" class="form-input" value="3.2">
+          <input name="odds_b" placeholder="Cote 2" class="form-input" value="2.0">
+        </div>
+        <input type="file" name="image" class="form-input">
+        <button type="button" onclick="createMatch()" class="btn btn-gold w-full">Créer le match</button>
       </form>
-      <div id="admin-msg" class="mt-3"></div>
+      <div id="admin-msg" class="mt-3 text-sm"></div>
     </div>
 
-    <div>
-      <h3 class="font-semibold">Matchs existants</h3>
-      <div class="mt-2 space-y-2">
+    <div class="card">
+      <h3 class="font-semibold mb-3">Matchs existants</h3>
+      <div class="space-y-2 max-h-[32rem] overflow-y-auto">
         {% for m in matches %}
-        <div class="p-2 border rounded flex justify-between items-center">
-          <div>
-            <div class="text-sm">{{ m.competition }} · {{ m.start_time }}</div>
-            <div class="font-medium">{{ m.team_a }} vs {{ m.team_b }}</div>
+        <div class="surface-2 rounded-lg p-3">
+          <div class="flex justify-between items-start gap-2">
+            <div>
+              <div class="text-xs text-[var(--text-muted)]">{{ m.competition }} · {{ m.discipline }} · {{ m.start_time[:16] }}</div>
+              <div class="font-medium">{{ m.team_a }} vs {{ m.team_b }}</div>
+              <div class="text-xs mt-1"><span class="status-badge status-{{ m.status }}">{{ m.status }}</span></div>
+            </div>
+            <a href="/match/{{ m.id }}" class="text-xs text-[var(--gold)] whitespace-nowrap">Voir <i class="fas fa-arrow-up-right-from-square"></i></a>
           </div>
-          <button onclick="changeStatus({{ m.id }}, 'live')" class="px-2 py-1 bg-green-500 text-white rounded text-sm">En cours</button>
-<button style="margin: 2px;" onclick="changeStatus({{ m.id }}, 'halftime')" class="px-2 py-1 bg-yellow-400 text-black rounded text-sm">Mi-temps</button>
-<button onclick="changeStatus({{ m.id }}, 'finished')" class="px-2 py-1 bg-red-600 text-white rounded text-sm">Terminé</button>
-<button onclick="updateScore({{ m.id }})" class="px-2 py-1 border rounded text-sm">Update score</button>
-
-          <div>
-            <a href="/match/{{ m.id }}" class="px-2 py-1 border rounded text-sm">Voir</a>
+          <div class="flex gap-1 flex-wrap mt-2">
+            <button onclick="changeStatus({{ m.id }}, 'live')" class="btn btn-sm btn-outline">En cours</button>
+            <button onclick="changeStatus({{ m.id }}, 'halftime')" class="btn btn-sm btn-outline">Mi-temps</button>
+            <button onclick="changeStatus({{ m.id }}, 'finished')" class="btn btn-sm btn-outline">Terminé</button>
+            <button onclick="updateScore({{ m.id }})" class="btn btn-sm btn-outline">Score</button>
+            <button onclick="deleteMatch({{ m.id }})" class="btn btn-sm btn-danger">Suppr.</button>
           </div>
-          
         </div>
+        {% else %}
+        <div class="empty-state"><i class="fas fa-futbol"></i>Aucun match.</div>
         {% endfor %}
       </div>
     </div>
   </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
 async function createMatch(){
   const form = document.getElementById('form-add-match');
@@ -89,60 +80,34 @@ async function createMatch(){
   const data = await res.json();
   const msg = document.getElementById('admin-msg');
   if(res.ok && data.ok){
-    msg.innerText = 'Match créé (id:' + data.id + ') — recharge la page pour voir.';
+    msg.innerHTML = '<span class="text-[var(--success)]">Match créé (id ' + data.id + ')</span>';
     form.reset();
+    setTimeout(() => location.reload(), 1000);
   } else {
-    msg.innerText = 'Erreur: ' + (data.error || 'inconnu');
+    msg.innerHTML = '<span class="text-red-400">Erreur: ' + (data.error || 'inconnue') + '</span>';
   }
 }
 
 async function changeStatus(id, status){
   const fd = new FormData(); fd.append('status', status);
   const res = await fetch('/api/match/' + id + '/update_status', {method:'POST', body: fd});
-  if(res.ok){ location.reload(); } else { alert('Erreur status'); }
+  if(res.ok){ showToast('Statut mis à jour'); location.reload(); } else { showToast('Erreur statut', 'error'); }
 }
+
 async function updateScore(id){
   const a = prompt('Score équipe A (nombre)');
   const b = prompt('Score équipe B (nombre)');
   if(a===null||b===null) return;
   const fd = new FormData(); fd.append('score_a', a); fd.append('score_b', b);
   const res = await fetch('/api/match/' + id + '/update_scores', {method:'POST', body: fd});
-  if(res.ok){ location.reload(); } else { alert('Erreur scores'); }
+  if(res.ok){ showToast('Score mis à jour'); location.reload(); } else { showToast('Erreur score', 'error'); }
 }
 
-
-async function fetchUnreadCount(){
-  try{
-    const res = await fetch('/api/notifications/unread_count');
-    const data = await res.json();
-    const badge = document.getElementById('notifBadge');
-    if(!badge) return;
-    const n = data.unread || 0;
-    if(n > 0){ badge.innerText = n; badge.classList.remove('hidden'); } else { badge.classList.add('hidden'); }
-  }catch(e){ console.log('Unread count error', e); }
+async function deleteMatch(id){
+  if(!confirm('Supprimer ce match ?')) return;
+  const res = await fetch('/api/matches/' + id + '/delete', {method:'POST'});
+  const data = await res.json();
+  if(res.ok){ showToast('Match supprimé'); location.reload(); } else { showToast(data.error || 'Erreur', 'error'); }
 }
-
-async function fetchNotifs(){
-  try{
-    const res = await fetch('/api/notifications');
-    const data = await res.json();
-    const el = document.getElementById('notifList');
-    if(!data.length){ el.innerText = 'Aucune notification récente'; return; }
-    el.innerHTML = data.slice(0,5).map(n => `<div class="py-1 border-b">${n.message} <div class="text-xs text-gray-400">${n.created_at}</div></div>`).join('');
-  }catch(e){ console.log(e); }
-}
-
-async function fetchOnline(){
-  try{
-    const res = await fetch('/api/online_users');
-    const data = await res.json();
-    const el = document.getElementById('onlineUsers');
-    if(!data.length){ el.innerText = 'Aucun utilisateur connecté'; return; }
-    el.innerHTML = data.map(u => `<div class="py-1">${u.username} <span class="text-xs text-gray-400">${u.last_seen}</span></div>`).join('');
-  }catch(e){ console.log(e); }
-}
-
-// initial calls
-fetchNotifs(); fetchOnline(); fetchUnreadCount();
-setInterval(fetchNotifs, 10000); setInterval(fetchOnline, 10000); setInterval(fetchUnreadCount, 10000);
+</script>
 {% endblock %}

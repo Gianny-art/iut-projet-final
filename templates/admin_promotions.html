@@ -1,0 +1,67 @@
+{% extends 'base_v2.html' %}
+{% block content %}
+<div class="px-4">
+  <h1 class="text-xl font-bold mb-4">Bannières d'accueil</h1>
+  {% include '_admin_nav.html' %}
+
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="card">
+      <h3 class="font-semibold mb-3">Ajouter une bannière</h3>
+      <form id="form-add-promo" enctype="multipart/form-data" class="space-y-3">
+        <input name="title" placeholder="Titre" class="form-input" required>
+        <input name="subtitle" placeholder="Sous-titre" class="form-input">
+        <input name="link" placeholder="Lien (ex: /matches)" class="form-input" value="/matches">
+        <input name="sort_order" type="number" placeholder="Ordre d'affichage" class="form-input" value="0">
+        <input type="file" name="image" class="form-input" required accept="image/*">
+        <button type="button" onclick="addPromo()" class="btn btn-gold w-full">Ajouter</button>
+      </form>
+      <div id="promo-msg" class="mt-3 text-sm"></div>
+    </div>
+
+    <div class="card">
+      <h3 class="font-semibold mb-3">Bannières existantes</h3>
+      <div class="space-y-2">
+        {% for p in promotions %}
+        <div class="surface-2 rounded-lg p-3 flex gap-3 items-center">
+          <img src="{{ url_for('static', filename='uploads/' + p.image) }}" class="w-16 h-16 object-cover rounded-lg">
+          <div class="flex-1 min-w-0">
+            <div class="font-medium truncate">{{ p.title }}</div>
+            <div class="text-xs text-[var(--text-muted)] truncate">{{ p.subtitle }}</div>
+            <span class="status-badge {{ 'status-finished' if p.active else 'status-live' }}">{{ 'Actif' if p.active else 'Masqué' }}</span>
+          </div>
+          <div class="flex flex-col gap-1">
+            <button onclick="togglePromo({{ p.id }})" class="btn btn-sm btn-outline">{{ 'Masquer' if p.active else 'Afficher' }}</button>
+            <button onclick="deletePromo({{ p.id }})" class="btn btn-sm btn-danger">Suppr.</button>
+          </div>
+        </div>
+        {% else %}
+        <div class="empty-state"><i class="fas fa-image"></i>Aucune bannière.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function addPromo(){
+  const form = document.getElementById('form-add-promo');
+  const fd = new FormData(form);
+  const res = await fetch('/admin/promotions/add', {method:'POST', body: fd});
+  const data = await res.json();
+  const msg = document.getElementById('promo-msg');
+  if(res.ok){ msg.innerHTML = '<span class="text-[var(--success)]">Bannière ajoutée</span>'; setTimeout(()=>location.reload(), 800); }
+  else { msg.innerHTML = '<span class="text-red-400">' + (data.error || 'Erreur') + '</span>'; }
+}
+async function togglePromo(id){
+  const res = await fetch('/admin/promotions/' + id + '/toggle', {method:'POST'});
+  if(res.ok){ showToast('Mis à jour'); location.reload(); } else { showToast('Erreur', 'error'); }
+}
+async function deletePromo(id){
+  if(!confirm('Supprimer cette bannière ?')) return;
+  const res = await fetch('/admin/promotions/' + id + '/delete', {method:'POST'});
+  if(res.ok){ showToast('Supprimée'); location.reload(); } else { showToast('Erreur', 'error'); }
+}
+</script>
+{% endblock %}
