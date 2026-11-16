@@ -1,6 +1,9 @@
 import os
 import sqlite3
 import uuid
+import math
+import hmac
+import secrets
 from datetime import datetime, timezone, timedelta
 
 from flask import (
@@ -12,12 +15,13 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 
 from payments import get_provider, available_providers
+from services.sports import bet_payout, match_outcome, prediction_points
 
 load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
-DB_PATH = os.path.join(DATA_DIR, "iutbet.db")
+DB_PATH = os.getenv('IUTBET_DB_PATH', os.path.join(DATA_DIR, "iutbet.db"))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
 ALLOWED_EXT = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
@@ -29,12 +33,14 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
 
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-change-me-in-prod')
+app.secret_key = os.getenv('SECRET_KEY')
+if not app.secret_key:
+    raise RuntimeError('SECRET_KEY must be configured before starting IUT Bet.')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 4 * 1024 * 1024  # 4MB limit
-
-if app.secret_key == 'dev-secret-change-me-in-prod':
-    print('WARNING: SECRET_KEY not set in .env — using an insecure default. Set SECRET_KEY before deploying.')
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('SESSION_COOKIE_SECURE', '').lower() in ('1', 'true', 'yes')
 
 
 # ---------------------------------------------------------------------------
@@ -86,6 +92,7 @@ def init_db():
             match_id INTEGER,
             choice TEXT,
             amount INTEGER,
+            odds REAL,
             won INTEGER DEFAULT NULL,
             processed INTEGER DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -98,18 +105,15 @@ def init_db():
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
         """)
-        admin_password = os.getenv('ADMIN_PASSWORD', 'ChangeMe#2026')
+        admin_password = os.getenv('ADMIN_PASSWORD')
+        if not admin_password:
+            conn.close()
+            os.remove(DB_PATH)
+            raise RuntimeError('ADMIN_PASSWORD must be configured before creating the first database.')
         c.execute("INSERT INTO users (username, password, balance, is_admin) VALUES (?, ?, ?, ?)",
                   ("admin", generate_password_hash(admin_password), 0, 1))
-        c.execute("INSERT INTO users (username, password, balance) VALUES (?, ?, ?)",
-                  ("alice", generate_password_hash("password"), 5000))
-        c.execute("INSERT INTO users (username, password, balance) VALUES (?, ?, ?)",
-                  ("bob", generate_password_hash("password"), 2000))
         conn.commit()
         conn.close()
-        if admin_password == 'ChangeMe#2026':
-            print('WARNING: ADMIN_PASSWORD not set in .env — the admin account was created with the default '
-                  'password "ChangeMe#2026". Set ADMIN_PASSWORD and recreate the account before going live.')
 
 
 def ensure_schema():
@@ -138,6 +142,7 @@ def ensure_schema():
         provider_tx_id TEXT,
         provider TEXT DEFAULT 'manual',
         provider_reference TEXT,
+        reserved INTEGER DEFAULT 0,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
     );""")
@@ -175,6 +180,15 @@ def ensure_schema():
         details TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );""")
+    c.execute("""CREATE TABLE IF NOT EXISTS predictions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        match_id INTEGER NOT NULL,
+        choice TEXT NOT NULL,
+        points_awarded INTEGER,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, match_id)
+    );""")
 
     # Additive column migrations for DBs created before these existed.
     def add_column(table, coldef):
@@ -185,6 +199,7 @@ def ensure_schema():
 
     add_column('bets', 'won INTEGER DEFAULT NULL')
     add_column('bets', 'processed INTEGER DEFAULT 0')
+    add_column('bets', 'odds REAL')
     add_column('users', 'blocked INTEGER DEFAULT 0')
     add_column('payments', "provider TEXT DEFAULT 'manual'")
     add_column('payments', 'provider_reference TEXT')
@@ -192,6 +207,7 @@ def ensure_schema():
     add_column('withdrawals', "provider TEXT DEFAULT 'manual'")
     add_column('withdrawals', 'provider_reference TEXT')
     add_column('withdrawals', 'last_checked_at TEXT')
+    add_column('withdrawals', 'reserved INTEGER DEFAULT 0')
 
     conn.commit()
 
@@ -291,13 +307,23 @@ def active_provider():
     return get_provider(active_provider_name())
 
 
-def create_notification(user_id, message, category='system'):
+def create_notification(user_id, message, category='system', cursor=None):
+    if cursor is not None:
+        cursor.execute("INSERT INTO notifications (user_id, message, category) VALUES (?, ?, ?)",
+                       (user_id, message, category))
+        return
     try:
         conn = get_db(); c = conn.cursor()
         c.execute("INSERT INTO notifications (user_id, message, category) VALUES (?, ?, ?)", (user_id, message, category))
         conn.commit(); conn.close()
     except Exception as e:
         print('Erreur create_notification:', e)
+
+def notify_admins(message, category='system'):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO notifications (user_id, message, category) "
+              "SELECT id, ?, ? FROM users WHERE is_admin=1", (message, category))
+    conn.commit(); conn.close()
 
 
 def refresh_session_user():
@@ -316,41 +342,40 @@ def refresh_session_user():
 # ---------------------------------------------------------------------------
 
 def settle_bet(c, bet):
-    won = False
-    odds_used = None
-    if bet['score_a'] > bet['score_b']:
-        if bet['choice'] == '1':
-            won, odds_used = True, bet['odds_a']
-    elif bet['score_a'] < bet['score_b']:
-        if bet['choice'] == '2':
-            won, odds_used = True, bet['odds_b']
-    else:
-        if bet['choice'] == 'X':
-            won, odds_used = True, bet['odds_x']
+    won = bet['choice'] == match_outcome(bet['score_a'], bet['score_b'])
 
-    if won and odds_used:
-        winnings = int(bet['amount'] * odds_used)
+    if won and bet['locked_odds']:
+        winnings = bet_payout(bet['amount'], bet['locked_odds'])
         c.execute("UPDATE users SET balance = balance + ? WHERE id = ?", (winnings, bet['user_id']))
         c.execute("INSERT INTO transactions (user_id, amount, type) VALUES (?, ?, ?)", (bet['user_id'], winnings, 'bet_win'))
-        create_notification(bet['user_id'], f"Vous avez gagné {winnings}F sur le pari #{bet['id']} !", 'bet')
+        create_notification(bet['user_id'], f"Vous avez gagné {winnings}F sur le pari #{bet['id']} !", 'bet', cursor=c)
 
     c.execute("UPDATE bets SET processed=1, won=? WHERE id=?", (1 if won else 0, bet['id']))
 
 
 def process_finished_matches():
     conn = get_db(); c = conn.cursor()
-    c.execute("""SELECT b.*, m.score_a, m.score_b, m.odds_a, m.odds_x, m.odds_b
+    c.execute("""SELECT b.*, m.score_a, m.score_b,
+                        COALESCE(b.odds, CASE b.choice
+                            WHEN '1' THEN m.odds_a WHEN 'X' THEN m.odds_x ELSE m.odds_b END) AS locked_odds
                  FROM bets b JOIN matches m ON m.id = b.match_id
                  WHERE m.status = 'finished' AND b.processed = 0""")
     for bet in c.fetchall():
         settle_bet(c, bet)
+    c.execute("""SELECT p.id, p.user_id, p.choice, m.score_a, m.score_b
+                 FROM predictions p JOIN matches m ON m.id=p.match_id
+                 WHERE m.status='finished' AND p.points_awarded IS NULL""")
+    for prediction in c.fetchall():
+        c.execute('UPDATE predictions SET points_awarded=? WHERE id=? AND points_awarded IS NULL',
+                  (prediction_points(prediction['choice'], prediction['score_a'], prediction['score_b']),
+                   prediction['id']))
     conn.commit(); conn.close()
 
 
 def update_match_statuses():
     now = datetime.now(timezone.utc)
     conn = get_db(); c = conn.cursor()
-    c.execute("SELECT id, start_time, discipline FROM matches WHERE status != 'finished'")
+    c.execute("SELECT id, start_time FROM matches WHERE status = 'scheduled'")
     rows = c.fetchall()
     for r in rows:
         st_raw = r['start_time']
@@ -365,9 +390,8 @@ def update_match_statuses():
                 continue
         if st.tzinfo is None:
             st = st.replace(tzinfo=timezone.utc)
-        duration = DURATION_MAP.get(r['discipline'] or 'Default', DURATION_MAP['Default'])
-        if now >= st + timedelta(minutes=duration):
-            c.execute("UPDATE matches SET status='finished' WHERE id=?", (r['id'],))
+        if now >= st:
+            c.execute("UPDATE matches SET status='live' WHERE id=? AND status='scheduled'", (r['id'],))
     conn.commit(); conn.close()
 
 
@@ -405,17 +429,22 @@ def poll_pending_provider_payments():
 
 def _finalize_deposit(c, payment_row, status):
     if status == 'SUCCESSFUL':
+        c.execute("UPDATE payments SET status='FINISHED' WHERE id=? AND status='PENDING'", (payment_row['id'],))
+        if c.rowcount != 1:
+            return False
         c.execute("SELECT balance FROM users WHERE id=?", (payment_row['user_id'],))
         row = c.fetchone()
         if row:
             c.execute("UPDATE users SET balance=balance+? WHERE id=?", (payment_row['amount'], payment_row['user_id']))
             c.execute("INSERT INTO transactions (user_id, amount, type) VALUES (?, ?, ?)",
                       (payment_row['user_id'], payment_row['amount'], 'deposit'))
-        c.execute("UPDATE payments SET status='FINISHED' WHERE id=?", (payment_row['id'],))
-        create_notification(payment_row['user_id'], f"Votre dépôt de {payment_row['amount']}F a été confirmé.", 'deposit')
+        create_notification(payment_row['user_id'], f"Votre dépôt de {payment_row['amount']}F a été confirmé.", 'deposit', cursor=c)
     else:
-        c.execute("UPDATE payments SET status='FAILED' WHERE id=?", (payment_row['id'],))
-        create_notification(payment_row['user_id'], f"Votre dépôt de {payment_row['amount']}F a échoué.", 'deposit')
+        c.execute("UPDATE payments SET status='FAILED' WHERE id=? AND status='PENDING'", (payment_row['id'],))
+        if c.rowcount != 1:
+            return False
+        create_notification(payment_row['user_id'], f"Votre dépôt de {payment_row['amount']}F a échoué.", 'deposit', cursor=c)
+    return True
 
 
 def _finalize_withdrawal(c, w_row, status):
@@ -424,14 +453,35 @@ def _finalize_withdrawal(c, w_row, status):
     request and triggered the payout, so SUCCESSFUL just closes it out and
     FAILED must refund the user."""
     if status == 'SUCCESSFUL':
-        c.execute("UPDATE withdrawals SET status='FINISHED' WHERE id=?", (w_row['id'],))
-        create_notification(w_row['user_id'], f"Votre retrait de {w_row['amount']}F a été envoyé avec succès.", 'withdrawal')
+        c.execute("UPDATE withdrawals SET status='FINISHED' WHERE id=? AND status='PROCESSING'", (w_row['id'],))
+        if c.rowcount != 1:
+            return False
+        create_notification(w_row['user_id'], f"Votre retrait de {w_row['amount']}F a été envoyé avec succès.", 'withdrawal', cursor=c)
     else:
+        c.execute("UPDATE withdrawals SET status='FAILED' WHERE id=? AND status='PROCESSING'", (w_row['id'],))
+        if c.rowcount != 1:
+            return False
         c.execute("UPDATE users SET balance = balance + ? WHERE id=?", (w_row['amount'], w_row['user_id']))
         c.execute("INSERT INTO transactions (user_id, amount, type) VALUES (?, ?, ?)",
                   (w_row['user_id'], w_row['amount'], 'withdrawal_refund'))
-        c.execute("UPDATE withdrawals SET status='FAILED' WHERE id=?", (w_row['id'],))
-        create_notification(w_row['user_id'], f"Votre retrait de {w_row['amount']}F a échoué côté opérateur et a été remboursé.", 'withdrawal')
+        create_notification(w_row['user_id'], f"Votre retrait de {w_row['amount']}F a échoué côté opérateur et a été remboursé.", 'withdrawal', cursor=c)
+    return True
+
+
+@app.before_request
+@app.before_request
+def csrf_protect():
+    if '_csrf_token' not in session:
+        session['_csrf_token'] = secrets.token_urlsafe(32)
+    if request.method not in ('GET', 'HEAD', 'OPTIONS') and request.endpoint != 'webhook_campay':
+        supplied = request.headers.get('X-CSRF-Token') or request.form.get('csrf_token', '')
+        if not hmac.compare_digest(session['_csrf_token'], supplied):
+            return jsonify({'error': 'Jeton CSRF invalide. Rechargez la page et réessayez.'}), 400
+
+
+@app.context_processor
+def inject_csrf_token():
+    return {'csrf_token': session.get('_csrf_token', '')}
 
 
 @app.before_request
@@ -565,9 +615,9 @@ def register():
     return render_template('register_v2.html')
 
 
-@app.route('/logout')
+@app.route('/logout', methods=['POST'])
 def logout():
-    session.pop('user', None)
+    session.clear()
     return redirect(url_for('index'))
 
 
@@ -580,7 +630,10 @@ def place_bet():
     if 'user' not in session:
         return jsonify({'error': 'Authentication required'}), 401
     user = session['user']
-    match_id = int(request.form['match_id'])
+    try:
+        match_id = int(request.form['match_id'])
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Match invalide'}), 400
     choice = request.form['choice']
     try:
         amount = int(request.form['amount'])
@@ -592,25 +645,35 @@ def place_bet():
         return jsonify({'error': 'Choix invalide'}), 400
 
     conn = get_db(); c = conn.cursor()
-    c.execute("SELECT status FROM matches WHERE id=?", (match_id,))
-    m = c.fetchone()
-    if not m or m['status'] == 'finished':
-        conn.close(); return jsonify({'error': 'Ce match est clos'}), 400
+    try:
+        c.execute('BEGIN IMMEDIATE')
+        c.execute("SELECT status, odds_a, odds_x, odds_b FROM matches WHERE id=?", (match_id,))
+        match = c.fetchone()
+        if not match or match['status'] != 'scheduled':
+            conn.rollback(); return jsonify({'error': 'Les paris sont clos pour ce match'}), 400
 
-    c.execute("SELECT id FROM bets WHERE user_id=? AND match_id=?", (user['id'], match_id))
-    if c.fetchone():
-        conn.close(); return jsonify({'error': 'Vous avez déjà parié sur ce match'}), 400
+        c.execute("SELECT id FROM bets WHERE user_id=? AND match_id=?", (user['id'], match_id))
+        if c.fetchone():
+            conn.rollback(); return jsonify({'error': 'Vous avez déjà parié sur ce match'}), 400
 
-    c.execute("SELECT balance FROM users WHERE id=?", (user['id'],))
-    row = c.fetchone()
-    if not row or row['balance'] < amount:
-        conn.close(); return jsonify({'error': 'Solde insuffisant'}), 400
+        c.execute("UPDATE users SET balance=balance-? WHERE id=? AND balance>=?", (amount, user['id'], amount))
+        if c.rowcount != 1:
+            conn.rollback(); return jsonify({'error': 'Solde insuffisant'}), 400
 
-    new_bal = row['balance'] - amount
-    c.execute("UPDATE users SET balance=? WHERE id=?", (new_bal, user['id']))
-    c.execute("INSERT INTO bets (user_id, match_id, choice, amount) VALUES (?, ?, ?, ?)", (user['id'], match_id, choice, amount))
-    c.execute("INSERT INTO transactions (user_id, amount, type) VALUES (?, ?, ?)", (user['id'], -amount, 'bet'))
-    conn.commit(); conn.close()
+        odds_column = {'1': 'odds_a', 'X': 'odds_x', '2': 'odds_b'}[choice]
+        odds = match[odds_column]
+        c.execute("INSERT INTO bets (user_id, match_id, choice, amount, odds) VALUES (?, ?, ?, ?, ?)",
+                  (user['id'], match_id, choice, amount, odds))
+        c.execute("INSERT INTO transactions (user_id, amount, type) VALUES (?, ?, ?)",
+                  (user['id'], -amount, 'bet'))
+        c.execute("SELECT balance FROM users WHERE id=?", (user['id'],))
+        new_bal = c.fetchone()['balance']
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
     session['user']['balance'] = new_bal
     return jsonify({'ok': True, 'balance': new_bal})
@@ -648,6 +711,64 @@ def api_get_matches():
     return jsonify(matches)
 
 
+@app.route('/api/predictions', methods=['POST'])
+def api_create_prediction():
+    if 'user' not in session:
+        return jsonify({'error': 'Authentication required'}), 401
+    data = request.get_json(silent=True) or request.form
+    try:
+        match_id = int(data.get('match_id'))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Match invalide'}), 400
+    choice = data.get('choice')
+    if choice not in ('1', 'X', '2'):
+        return jsonify({'error': 'Pronostic invalide'}), 400
+
+    conn = get_db(); c = conn.cursor()
+    try:
+        c.execute('BEGIN IMMEDIATE')
+        c.execute("SELECT status FROM matches WHERE id=?", (match_id,))
+        match = c.fetchone()
+        if not match or match['status'] != 'scheduled':
+            conn.rollback(); return jsonify({'error': 'Les pronostics sont clos pour ce match'}), 400
+        c.execute("""INSERT INTO predictions (user_id, match_id, choice)
+                     VALUES (?, ?, ?)
+                     ON CONFLICT(user_id, match_id) DO UPDATE SET choice=excluded.choice,
+                         points_awarded=NULL""", (session['user']['id'], match_id, choice))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+    return jsonify({'ok': True, 'choice': choice})
+
+
+@app.route('/api/predictions/<int:match_id>')
+def api_get_prediction(match_id):
+    if 'user' not in session:
+        return jsonify({'error': 'Authentication required'}), 401
+    conn = get_db(); c = conn.cursor()
+    c.execute("SELECT choice, points_awarded FROM predictions WHERE user_id=? AND match_id=?",
+              (session['user']['id'], match_id))
+    prediction = c.fetchone()
+    conn.close()
+    return jsonify(dict(prediction) if prediction else {})
+
+
+@app.route('/leaderboard')
+def leaderboard():
+    conn = get_db(); c = conn.cursor()
+    c.execute("""SELECT u.username, COALESCE(SUM(p.points_awarded), 0) AS points,
+                        COUNT(p.id) AS predictions
+                 FROM users u LEFT JOIN predictions p ON p.user_id=u.id
+                 WHERE u.is_admin=0 AND u.blocked=0
+                 GROUP BY u.id ORDER BY points DESC, predictions DESC, u.username COLLATE NOCASE ASC""")
+    rows = c.fetchall()
+    conn.close()
+    return render_template('leaderboard.html', entries=rows)
+
+
 # ---------------------------------------------------------------------------
 # Deposits / withdrawals (payment providers)
 # ---------------------------------------------------------------------------
@@ -662,7 +783,9 @@ def deposit_page():
 @app.route('/deposit_status/<txid>')
 def deposit_status(txid):
     conn = get_db(); c = conn.cursor()
-    c.execute("SELECT * FROM payments WHERE provider_tx_id=?", (txid,))
+    if 'user' not in session:
+        conn.close(); return redirect(url_for('login'))
+    c.execute("SELECT * FROM payments WHERE provider_tx_id=? AND user_id=?", (txid, session['user']['id']))
     p = c.fetchone(); conn.close()
     if not p:
         flash('Transaction introuvable', 'error'); return redirect(url_for('deposit_page'))
@@ -681,7 +804,7 @@ def api_deposit():
     except Exception:
         return jsonify({'error': 'Montant invalide'}), 400
 
-    if not phone or operator not in OPERATORS or amount < 100:
+    if not phone or operator not in OPERATORS or amount < 100 or amount > 1000000:
         return jsonify({'error': 'Données manquantes ou invalides'}), 400
 
     user_id = session['user']['id']
@@ -699,7 +822,7 @@ def api_deposit():
     if not result.ok:
         return jsonify({'error': result.error or "Le fournisseur de paiement a refusé la demande."}), 502
 
-    create_notification(None, f"Nouveau dépôt en attente ({provider.name}): {amount}F par {session['user']['username']}", 'deposit')
+    notify_admins(f"Nouveau dépôt en attente ({provider.name}): {amount}F par {session['user']['username']}", 'deposit')
     return jsonify({
         'ok': True,
         'provider_tx_id': external_ref,
@@ -717,13 +840,8 @@ def webhook_campay():
 
     campay = get_provider('campay')
     verified = campay.verify_webhook_signature(data)
-    if verified is False:
+    if verified is not True:
         return jsonify({'received': False, 'error': 'invalid signature'}), 401
-    if verified is None:
-        print('WARNING: CAMPAY_WEBHOOK_KEY not set — webhook signature was not verified.')
-
-    status = (data.get('status') or '').upper()
-    final_status = 'SUCCESSFUL' if status == 'SUCCESSFUL' else 'FAILED'
     reference = data.get('reference')
     external_reference = data.get('external_reference')
 
@@ -738,9 +856,11 @@ def webhook_campay():
         p = c.fetchone()
 
     if p:
-        if p['status'] in ('FINISHED', 'FAILED'):
+        if p['status'] != 'PENDING':
             conn.close(); return jsonify({'received': True, 'note': 'already settled'})
-        _finalize_deposit(c, p, final_status)
+        result = campay.check_status(p['provider_reference'] or p['provider_tx_id'])
+        if result.ok and result.status in ('SUCCESSFUL', 'FAILED'):
+            _finalize_deposit(c, p, result.status)
         conn.commit(); conn.close()
         return jsonify({'received': True})
 
@@ -753,9 +873,11 @@ def webhook_campay():
         w = c.fetchone()
 
     if w:
-        if w['status'] in ('FINISHED', 'FAILED', 'REJECTED'):
+        if w['status'] != 'PROCESSING':
             conn.close(); return jsonify({'received': True, 'note': 'already settled'})
-        _finalize_withdrawal(c, w, final_status)
+        result = campay.check_status(w['provider_reference'] or w['provider_tx_id'])
+        if result.ok and result.status in ('SUCCESSFUL', 'FAILED'):
+            _finalize_withdrawal(c, w, result.status)
         conn.commit(); conn.close()
         return jsonify({'received': True})
 
@@ -771,8 +893,11 @@ def wallet():
     c.execute("SELECT amount, type, created_at FROM transactions WHERE user_id=? ORDER BY created_at DESC LIMIT 50",
               (session['user']['id'],))
     transactions = c.fetchall()
+    c.execute("SELECT COALESCE(SUM(amount), 0) AS total FROM withdrawals WHERE user_id=? AND status IN ('PENDING', 'PROCESSING')",
+              (session['user']['id'],))
+    reserved_withdrawals = c.fetchone()['total']
     conn.close()
-    return render_template('wallet.html', transactions=transactions)
+    return render_template('wallet.html', transactions=transactions, reserved_withdrawals=reserved_withdrawals)
 
 
 @app.route('/api/withdraw', methods=['POST'])
@@ -796,18 +921,25 @@ def api_withdraw():
 
     user = session['user']
     conn = get_db(); c = conn.cursor()
-    c.execute("SELECT balance FROM users WHERE id=?", (user['id'],))
-    row = c.fetchone()
-    if not row or row['balance'] < amount:
-        conn.close(); return jsonify({'error': 'Solde insuffisant'}), 400
-
     external_ref = f"WDR_{user['id']}_{uuid.uuid4().hex[:10]}"
-    c.execute("""INSERT INTO withdrawals (user_id, amount, phone, operator, provider, provider_tx_id)
-                 VALUES (?, ?, ?, ?, 'manual', ?)""", (user['id'], amount, phone, operator, external_ref))
-    conn.commit(); conn.close()
+    try:
+        c.execute('BEGIN IMMEDIATE')
+        c.execute("UPDATE users SET balance=balance-? WHERE id=? AND balance>=?", (amount, user['id'], amount))
+        if c.rowcount != 1:
+            conn.rollback(); return jsonify({'error': 'Solde insuffisant'}), 400
+        c.execute("""INSERT INTO withdrawals (user_id, amount, phone, operator, provider, provider_tx_id, reserved)
+                     VALUES (?, ?, ?, ?, 'manual', ?, 1)""", (user['id'], amount, phone, operator, external_ref))
+        c.execute("INSERT INTO transactions (user_id, amount, type) VALUES (?, ?, 'withdrawal')", (user['id'], -amount))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
-    create_notification(None, f"Nouvelle demande de retrait: {amount}F par {user['username']}", 'withdrawal')
-    return jsonify({'ok': True, 'message': "Retrait enregistré. Il sera débité une fois approuvé par l'admin.",
+    session['user']['balance'] -= amount
+    notify_admins(f"Nouvelle demande de retrait: {amount}F par {user['username']}", 'withdrawal')
+    return jsonify({'ok': True, 'message': "Retrait enregistré. Le montant est réservé jusqu'au traitement de la demande.",
                      'provider_tx_id': external_ref})
 
 
@@ -820,7 +952,7 @@ def api_notifications():
     if 'user' not in session:
         return jsonify([])
     conn = get_db(); c = conn.cursor()
-    c.execute("SELECT * FROM notifications WHERE user_id IS NULL OR user_id=? ORDER BY created_at DESC LIMIT 50",
+    c.execute("SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 50",
               (session['user']['id'],))
     rows = [dict(r) for r in c.fetchall()]
     conn.close()
@@ -833,7 +965,7 @@ def api_notifications_unread_count():
         return jsonify({'unread': 0})
     uid = session['user']['id']
     conn = get_db(); c = conn.cursor()
-    c.execute("SELECT COUNT(*) AS c FROM notifications WHERE is_read=0 AND (user_id IS NULL OR user_id=?)", (uid,))
+    c.execute("SELECT COUNT(*) AS c FROM notifications WHERE is_read=0 AND user_id=?", (uid,))
     row = c.fetchone(); conn.close()
     return jsonify({'unread': row['c'] if row else 0})
 
@@ -843,7 +975,7 @@ def api_notification_read(nid):
     if 'user' not in session:
         return jsonify({'error': 'Auth required'}), 401
     conn = get_db(); c = conn.cursor()
-    c.execute('UPDATE notifications SET is_read=1 WHERE id=?', (nid,))
+    c.execute('UPDATE notifications SET is_read=1 WHERE id=? AND user_id=?', (nid, session['user']['id']))
     conn.commit(); conn.close()
     return jsonify({'ok': True})
 
@@ -932,6 +1064,8 @@ def api_create_match():
         odds_b = float(request.form.get('odds_b', 2.5))
     except Exception:
         return jsonify({'error': 'Cotes invalides'}), 400
+    if any(not math.isfinite(odds) or odds <= 1 for odds in (odds_a, odds_x, odds_b)):
+        return jsonify({'error': 'Chaque cote doit être un nombre fini supérieur à 1'}), 400
 
     image_filename = save_upload(request.files.get('image'))
 
@@ -972,7 +1106,13 @@ def api_update_match(match_id):
         fields.append('start_time=?'); params.append(st.isoformat())
     for key in ('odds_a', 'odds_x', 'odds_b'):
         if request.form.get(key):
-            fields.append(f"{key}=?"); params.append(float(request.form[key]))
+            try:
+                odds = float(request.form[key])
+            except ValueError:
+                conn.close(); return jsonify({'error': 'Cotes invalides'}), 400
+            if not math.isfinite(odds) or odds <= 1:
+                conn.close(); return jsonify({'error': 'Chaque cote doit être un nombre fini supérieur à 1'}), 400
+            fields.append(f"{key}=?"); params.append(odds)
     image_filename = save_upload(request.files.get('image'))
     if image_filename:
         fields.append('image=?'); params.append(image_filename)
@@ -1018,8 +1158,13 @@ def api_update_match_status(match_id):
 @app.route('/api/match/<int:match_id>/update_scores', methods=['POST'])
 def api_update_scores(match_id):
     admin_required()
-    score_a = int(request.form.get('score_a', 0))
-    score_b = int(request.form.get('score_b', 0))
+    try:
+        score_a = int(request.form.get('score_a', 0))
+        score_b = int(request.form.get('score_b', 0))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Scores invalides'}), 400
+    if score_a < 0 or score_b < 0:
+        return jsonify({'error': 'Les scores ne peuvent pas être négatifs'}), 400
     conn = get_db(); c = conn.cursor()
     c.execute("UPDATE matches SET score_a=?, score_b=?, status='live' WHERE id=?", (score_a, score_b, match_id))
     conn.commit(); conn.close()
@@ -1048,9 +1193,10 @@ def admin_payment_approve(payment_id):
     p = c.fetchone()
     if not p:
         conn.close(); return jsonify({'error': 'Paiement introuvable'}), 404
-    if p['status'] == 'FINISHED':
-        conn.close(); return jsonify({'error': 'Paiement déjà confirmé'}), 400
-    _finalize_deposit(c, p, 'SUCCESSFUL')
+    if p['status'] != 'PENDING' or p['provider'] != 'manual':
+        conn.close(); return jsonify({'error': 'Seul un dépôt manuel en attente peut être approuvé'}), 400
+    if not _finalize_deposit(c, p, 'SUCCESSFUL'):
+        conn.close(); return jsonify({'error': 'Paiement déjà traité'}), 400
     conn.commit(); conn.close()
     log_admin_action('approve_payment', str(payment_id))
     return jsonify({'ok': True})
@@ -1064,9 +1210,11 @@ def admin_payment_reject(payment_id):
     p = c.fetchone()
     if not p:
         conn.close(); return jsonify({'error': 'Paiement introuvable'}), 404
-    if p['status'] in ('REJECTED', 'FAILED', 'FINISHED'):
+    if p['status'] != 'PENDING':
         conn.close(); return jsonify({'error': 'Paiement déjà traité'}), 400
-    c.execute('UPDATE payments SET status=? WHERE id=?', ('REJECTED', payment_id))
+    c.execute("UPDATE payments SET status='REJECTED' WHERE id=? AND status='PENDING'", (payment_id,))
+    if c.rowcount != 1:
+        conn.close(); return jsonify({'error': 'Paiement déjà traité'}), 400
     conn.commit(); conn.close()
     create_notification(p['user_id'], f"Votre dépôt de {p['amount']}F a été rejeté. Veuillez réessayer.", 'deposit')
     log_admin_action('reject_payment', str(payment_id))
@@ -1090,13 +1238,14 @@ def admin_withdraw_approve(wid):
     w = c.fetchone()
     if not w:
         conn.close(); return jsonify({'error': 'Retrait introuvable'}), 404
-    if w['status'] in ('FINISHED', 'PROCESSING'):
+    if w['status'] != 'PENDING':
         conn.close(); return jsonify({'error': 'Déjà traité'}), 400
 
-    c.execute('SELECT balance FROM users WHERE id=?', (w['user_id'],))
-    row = c.fetchone()
-    if not row or (row['balance'] or 0) < w['amount']:
-        conn.close(); return jsonify({'error': 'Solde insuffisant pour traiter le retrait'}), 400
+    if not w['reserved']:
+        c.execute('SELECT balance FROM users WHERE id=?', (w['user_id'],))
+        row = c.fetchone()
+        if not row or (row['balance'] or 0) < w['amount']:
+            conn.close(); return jsonify({'error': 'Solde insuffisant pour traiter le retrait'}), 400
 
     # Attempt an automatic payout through the active provider when it's not
     # the manual fallback; otherwise the admin transfers the money by hand
@@ -1109,8 +1258,14 @@ def admin_withdraw_approve(wid):
             return jsonify({'error': f"Échec du paiement automatique ({provider.name}): {result.error}"}), 502
         c.execute('UPDATE withdrawals SET provider_reference=? WHERE id=?', (result.reference, wid))
 
-    c.execute('UPDATE users SET balance = balance - ? WHERE id=?', (w['amount'], w['user_id']))
-    c.execute("INSERT INTO transactions (user_id, amount, type) VALUES (?, ?, ?)", (w['user_id'], -w['amount'], 'withdrawal'))
+    if not w['reserved']:
+        c.execute('UPDATE users SET balance = balance - ? WHERE id=? AND balance>=?',
+                  (w['amount'], w['user_id'], w['amount']))
+        if c.rowcount != 1:
+            conn.rollback(); conn.close()
+            return jsonify({'error': 'Solde insuffisant pour traiter le retrait'}), 400
+        c.execute("INSERT INTO transactions (user_id, amount, type) VALUES (?, ?, 'withdrawal')",
+                  (w['user_id'], -w['amount']))
 
     commission_pct = float(get_setting('withdrawal_commission_pct', '1') or '1')
     fee = int(max(1, round(w['amount'] * commission_pct / 100)))
@@ -1120,13 +1275,13 @@ def admin_withdraw_approve(wid):
         # The admin already transferred the money by hand before clicking
         # this button, so there is nothing left to confirm.
         c.execute('UPDATE withdrawals SET status=? WHERE id=?', ('FINISHED', wid))
-        create_notification(w['user_id'], f"Votre demande de retrait de {w['amount']}F a été approuvée.", 'withdrawal')
+        create_notification(w['user_id'], f"Votre demande de retrait de {w['amount']}F a été approuvée.", 'withdrawal', cursor=c)
     else:
         # The payout was only *initiated* -- Campay/Maviance confirm success
         # or failure asynchronously (webhook or polling), which is when the
         # withdrawal actually becomes FINISHED (or FAILED + refunded).
         c.execute('UPDATE withdrawals SET status=? WHERE id=?', ('PROCESSING', wid))
-        create_notification(w['user_id'], f"Votre retrait de {w['amount']}F est en cours de traitement via {provider.name}.", 'withdrawal')
+        create_notification(w['user_id'], f"Votre retrait de {w['amount']}F est en cours de traitement via {provider.name}.", 'withdrawal', cursor=c)
     conn.commit(); conn.close()
 
     log_admin_action('approve_withdrawal', str(wid))
@@ -1141,9 +1296,15 @@ def admin_withdraw_reject(wid):
     w = c.fetchone()
     if not w:
         conn.close(); return jsonify({'error': 'Retrait introuvable'}), 404
-    if w['status'] in ('REJECTED', 'FAILED', 'FINISHED', 'PROCESSING'):
+    if w['status'] != 'PENDING':
         conn.close(); return jsonify({'error': 'Déjà traité'}), 400
-    c.execute('UPDATE withdrawals SET status=? WHERE id=?', ('REJECTED', wid))
+    c.execute("UPDATE withdrawals SET status='REJECTED' WHERE id=? AND status='PENDING'", (wid,))
+    if c.rowcount != 1:
+        conn.close(); return jsonify({'error': 'Déjà traité'}), 400
+    if w['reserved']:
+        c.execute('UPDATE users SET balance=balance+? WHERE id=?', (w['amount'], w['user_id']))
+        c.execute("INSERT INTO transactions (user_id, amount, type) VALUES (?, ?, 'withdrawal_refund')",
+                  (w['user_id'], w['amount']))
     conn.commit(); conn.close()
     create_notification(w['user_id'], f"Votre demande de retrait de {w['amount']}F a été rejetée.", 'withdrawal')
     log_admin_action('reject_withdrawal', str(wid))
@@ -1270,8 +1431,19 @@ def admin_promotions_delete(pid):
 def admin_settings():
     admin_required()
     if request.method == 'POST':
-        set_setting('active_payment_provider', request.form.get('active_payment_provider', 'manual'))
-        set_setting('withdrawal_commission_pct', request.form.get('withdrawal_commission_pct', '1'))
+        provider_name = request.form.get('active_payment_provider', 'manual')
+        if provider_name not in available_providers():
+            flash('Fournisseur de paiement non disponible.', 'error')
+            return redirect(url_for('admin_settings'))
+        try:
+            commission_pct = float(request.form.get('withdrawal_commission_pct', '1'))
+        except ValueError:
+            commission_pct = -1
+        if not math.isfinite(commission_pct) or not 0 <= commission_pct <= 20:
+            flash('La commission doit être comprise entre 0 et 20%.', 'error')
+            return redirect(url_for('admin_settings'))
+        set_setting('active_payment_provider', provider_name)
+        set_setting('withdrawal_commission_pct', str(commission_pct))
         set_setting('support_phone', request.form.get('support_phone', ''))
         set_setting('site_tagline', request.form.get('site_tagline', ''))
         log_admin_action('update_settings')

@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="description" content="IUT Bet — la plateforme de pronostics sportifs des étudiants de l'IUT. Football, Basketball, Volleyball, Handball : pariez sur les matchs de votre campus.">
+  <meta name="csrf-token" content="{{ csrf_token }}">
   <title>{% block title %}IUT Bet — Pronostics sportifs du campus{% endblock %}</title>
 
   <link rel="manifest" href="{{ url_for('webmanifest') }}">
@@ -49,10 +50,11 @@
       {% endif %}
     </div>
 
-    <nav class="flex justify-between px-2 py-2 bg-black/15 overflow-x-auto hide-scrollbar">
+    <nav class="hidden md:flex justify-between px-2 py-2 bg-black/15 overflow-x-auto hide-scrollbar">
       <a href="{{ url_for('index') }}" class="nav-icon {{ 'active' if request.path == url_for('index') }}"><i class="fas fa-house"></i><span>Accueil</span></a>
       <a href="{{ url_for('matches_page') }}" class="nav-icon {{ 'active' if request.path == url_for('matches_page') }}"><i class="fas fa-futbol"></i><span>Matchs</span></a>
       <a href="{{ url_for('competitions') }}" class="nav-icon {{ 'active' if request.path == url_for('competitions') }}"><i class="fas fa-trophy"></i><span>Compét.</span></a>
+      <a href="{{ url_for('leaderboard') }}" class="nav-icon {{ 'active' if request.path == url_for('leaderboard') }}"><i class="fas fa-ranking-star"></i><span>Classement</span></a>
       <a href="{{ url_for('deposit_page') }}" class="nav-icon {{ 'active' if request.path == url_for('deposit_page') }}"><i class="fas fa-wallet"></i><span>Dépôt</span></a>
       {% if session.get('user') %}
       <a href="{{ url_for('wallet') }}" class="nav-icon {{ 'active' if request.path == url_for('wallet') }}"><i class="fas fa-user"></i><span>Compte</span></a>
@@ -62,7 +64,7 @@
     </nav>
   </header>
 
-  <main class="flex-1 pt-[7.5rem] pb-4">
+  <main class="flex-1 pt-16 md:pt-[7.5rem] pb-4">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for cat, msg in messages %}
@@ -82,7 +84,7 @@
       <span class="w-11 h-11 -mt-6 rounded-full gradient-gold flex items-center justify-center shadow-lg"><i class="fas fa-plus text-gray-900 text-lg"></i></span>
     </a>
     <a href="{{ url_for('wallet') if session.get('user') else url_for('login') }}" class="nav-icon {{ 'active' if request.path == url_for('wallet') }}"><i class="fas fa-wallet"></i><span>Portefeuille</span></a>
-    <a href="{{ url_for('wallet') if session.get('user') else url_for('login') }}" class="nav-icon"><i class="fas fa-user"></i><span>Compte</span></a>
+    <a href="{{ url_for('leaderboard') }}" class="nav-icon {{ 'active' if request.path == url_for('leaderboard') }}"><i class="fas fa-ranking-star"></i><span>Classement</span></a>
   </nav>
 
   <script>
@@ -135,6 +137,32 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(()=>{}));
     }
+  </script>
+
+  <script>
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    document.querySelectorAll('form').forEach(form => {
+      if (form.method.toUpperCase() !== 'POST' || form.querySelector('[name="csrf_token"]')) return;
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'csrf_token';
+      input.value = csrfToken;
+      form.appendChild(input);
+    });
+
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = (input, options = {}) => {
+      const inputUrl = input instanceof Request ? input.url : input;
+      const target = new URL(inputUrl, window.location.href);
+      const method = (options.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
+      if (target.origin === window.location.origin && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+        const headers = new Headers(input instanceof Request ? input.headers : undefined);
+        new Headers(options.headers || {}).forEach((value, key) => headers.set(key, value));
+        headers.set('X-CSRF-Token', csrfToken);
+        options = {...options, headers};
+      }
+      return nativeFetch(input, options);
+    };
   </script>
 
   {% block scripts %}{% endblock %}

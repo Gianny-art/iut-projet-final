@@ -36,15 +36,15 @@
 
   <div class="card h-fit">
     <h3 class="font-semibold mb-3">Placer une mise</h3>
-    {% if match['status'] != 'finished' %}
+    {% if match['status'] == 'scheduled' %}
     {% if session.user %}
     <form id="betForm">
       <input type="hidden" name="match_id" value="{{ match['id'] }}">
       <label class="form-label">Votre pronostic</label>
       <div class="odds-row mb-3" id="choice-buttons">
-        <div class="odds-btn" data-choice="1"><span class="label">1</span><span class="value">{{ '%.2f'|format(match['odds_a']) }}</span></div>
-        <div class="odds-btn" data-choice="X"><span class="label">X</span><span class="value">{{ '%.2f'|format(match['odds_x']) }}</span></div>
-        <div class="odds-btn" data-choice="2"><span class="label">2</span><span class="value">{{ '%.2f'|format(match['odds_b']) }}</span></div>
+        <button type="button" class="odds-btn" data-choice="1" aria-pressed="false"><span class="label">1</span><span class="value">{{ '%.2f'|format(match['odds_a']) }}</span></button>
+        <button type="button" class="odds-btn" data-choice="X" aria-pressed="false"><span class="label">X</span><span class="value">{{ '%.2f'|format(match['odds_x']) }}</span></button>
+        <button type="button" class="odds-btn" data-choice="2" aria-pressed="false"><span class="label">2</span><span class="value">{{ '%.2f'|format(match['odds_b']) }}</span></button>
       </div>
       <input type="hidden" name="choice" id="choiceInput">
       <label class="form-label">Montant (100 — 5000 F)</label>
@@ -57,19 +57,83 @@
     <a href="{{ url_for('login') }}" class="btn btn-gold w-full">Se connecter</a>
     {% endif %}
     {% else %}
-    <div class="empty-state"><i class="fas fa-flag-checkered"></i>Match terminé — les paris sont clos.</div>
+    <div class="empty-state"><i class="fas fa-flag-checkered"></i>Les paris sont clos pour ce match.</div>
     {% endif %}
     <div id="betResult" class="mt-3 text-sm"></div>
   </div>
+
+  {% if session.get('user') and match['status'] == 'scheduled' %}
+  <section class="card md:col-span-3" aria-labelledby="prediction-title">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 id="prediction-title" class="font-semibold">Pronostic gratuit</h2>
+        <p class="text-sm text-[var(--text-muted)]">Choisissez l’issue du match. Une bonne réponse rapporte 3 points au classement.</p>
+      </div>
+      <a href="{{ url_for('leaderboard') }}" class="btn btn-outline btn-sm"><i class="fas fa-ranking-star mr-1"></i>Classement</a>
+    </div>
+    <div class="odds-row mt-4" id="prediction-options">
+      <button type="button" class="odds-btn" data-choice="1" aria-pressed="false"><span class="label">1</span><span class="value">{{ match['team_a'] }}</span></button>
+      <button type="button" class="odds-btn" data-choice="X" aria-pressed="false"><span class="label">X</span><span class="value">Match nul</span></button>
+      <button type="button" class="odds-btn" data-choice="2" aria-pressed="false"><span class="label">2</span><span class="value">{{ match['team_b'] }}</span></button>
+    </div>
+    <div class="flex flex-wrap items-center gap-3 mt-4">
+      <button type="button" id="savePrediction" class="btn btn-gold">Enregistrer mon pronostic</button>
+      <span id="predictionResult" class="text-sm" role="status" aria-live="polite"></span>
+    </div>
+  </section>
+  {% endif %}
 </div>
 
 <script>
 const ODDS = {'1': {{ match['odds_a'] }}, 'X': {{ match['odds_x'] }}, '2': {{ match['odds_b'] }}};
+let freePredictionChoice = '';
+
+document.querySelectorAll('#prediction-options .odds-btn').forEach(button => {
+  button.addEventListener('click', () => {
+    document.querySelectorAll('#prediction-options .odds-btn').forEach(option => {
+      option.classList.remove('selected');
+      option.setAttribute('aria-pressed', 'false');
+    });
+    button.classList.add('selected');
+    button.setAttribute('aria-pressed', 'true');
+    freePredictionChoice = button.dataset.choice;
+  });
+});
+
+async function loadPrediction(){
+  const options = document.getElementById('prediction-options');
+  if(!options) return;
+  const response = await fetch('/api/predictions/{{ match["id"] }}');
+  if(!response.ok) return;
+  const prediction = await response.json();
+  if(!prediction.choice) return;
+  freePredictionChoice = prediction.choice;
+  const button = options.querySelector(`[data-choice="${prediction.choice}"]`);
+  button?.click();
+  const label = prediction.points_awarded === null
+    ? 'Pronostic enregistré.'
+    : `Résultat : ${prediction.points_awarded} point${prediction.points_awarded === 1 ? '' : 's'}.`;
+  document.getElementById('predictionResult').textContent = label;
+}
+
+document.getElementById('savePrediction')?.addEventListener('click', async () => {
+  const result = document.getElementById('predictionResult');
+  if(!freePredictionChoice){ result.textContent = 'Choisissez une issue.'; return; }
+  const response = await fetch('/api/predictions', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({match_id: {{ match['id'] }}, choice: freePredictionChoice})
+  });
+  const data = await response.json();
+  result.textContent = response.ok ? 'Pronostic enregistré.' : (data.error || 'Impossible d’enregistrer le pronostic.');
+});
 
 document.querySelectorAll('#choice-buttons .odds-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('#choice-buttons .odds-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelectorAll('#choice-buttons .odds-btn').forEach(b => b.setAttribute('aria-pressed', 'false'));
     btn.classList.add('selected');
+    btn.setAttribute('aria-pressed', 'true');
     document.getElementById('choiceInput').value = btn.dataset.choice;
     updatePotentialWin();
   });
@@ -90,6 +154,9 @@ function updatePotentialWin(){
 async function placeBet(){
   const choice = document.getElementById('choiceInput').value;
   if(!choice){ document.getElementById('betResult').innerHTML = '<div class="text-red-400">Choisissez 1, X ou 2.</div>'; return; }
+  const amount = Number(document.getElementById('amountInput').value);
+  const potential = Math.floor(amount * ODDS[choice]);
+  if(!window.confirm(`Confirmer ${amount} F sur ${choice} ? Gain potentiel : ${potential} F.`)) return;
   const fd = new FormData(document.getElementById('betForm'));
   const resp = await fetch('/place_bet', {method:'POST', body: fd});
   const data = await resp.json();
@@ -99,7 +166,7 @@ async function placeBet(){
     showToast('Pari enregistré !', 'success');
     setTimeout(() => location.reload(), 1200);
   } else {
-    el.innerHTML = '<div class="text-red-400">' + (data.error || 'Erreur inconnue') + '</div>';
+    el.textContent = data.error || 'Erreur inconnue';
     if(resp.status===401) window.location.href = '/login';
   }
 }
@@ -156,6 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(updateMatchTime, 60000);
   setInterval(fetchMatchInfo, 8000);
   loadUserBets();
+  loadPrediction();
 });
 </script>
 {% endblock %}

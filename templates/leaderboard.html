@@ -1,0 +1,32 @@
+{% extends 'base_v2.html' %}
+{% block title %}Classement des pronostics — IUT Bet{% endblock %}
+{% block content %}
+<section class="px-4 max-w-4xl mx-auto">
+  <div class="flex flex-wrap items-end justify-between gap-3 mb-5">
+    <div>
+      <p class="text-xs uppercase tracking-wider text-[var(--gold)]">Ligue du campus</p>
+      <h1 class="text-2xl font-bold">Classement des pronostics</h1>
+      <p class="text-sm text-[var(--text-muted)] mt-1">3 points pour chaque bon résultat. Ces pronostics n’utilisent pas votre solde.</p>
+    </div>
+    <a href="{{ url_for('matches_page') }}" class="btn btn-outline"><i class="fas fa-futbol mr-1"></i>Voir les matchs</a>
+  </div>
+
+  <div class="card overflow-x-auto">
+    <table class="table-auto w-full text-sm">
+      <thead><tr><th class="text-left">Rang</th><th class="text-left">Joueur</th><th class="text-right">Pronostics</th><th class="text-right">Points</th></tr></thead>
+      <tbody>
+        {% for entry in entries %}
+        <tr>
+          <td class="font-semibold">{{ loop.index }}</td>
+          <td>{{ entry.username }}</td>
+          <td class="text-right">{{ entry.predictions }}</td>
+          <td class="text-right font-bold text-[var(--gold)]">{{ entry.points }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4"><div class="empty-state"><i class="fas fa-ranking-star"></i>Le classement apparaîtra après les premiers pronostics.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

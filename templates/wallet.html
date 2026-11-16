@@ -10,10 +10,13 @@
     <div class="card-gradient rounded-2xl p-6">
       <p class="text-white/80 text-sm">Solde actuel</p>
       <div class="text-3xl font-bold text-white mt-1">{{ '{:,}'.format(session.user.balance).replace(',', ' ') }} F</div>
+      {% if reserved_withdrawals %}<p class="text-sm text-white/75 mt-2">Retraits en cours : {{ '{:,}'.format(reserved_withdrawals).replace(',', ' ') }} F (montant déjà réservé)</p>{% endif %}
       <div class="mt-5 flex gap-2 flex-wrap">
         <a href="{{ url_for('deposit_page') }}" class="btn btn-gold btn-sm">Déposer</a>
         <button onclick="showWithdrawModal()" class="btn btn-outline btn-sm border-white/40 text-white">Retirer</button>
-        <a href="{{ url_for('logout') }}" class="btn btn-outline btn-sm border-white/40 text-white ml-auto">Déconnexion</a>
+        <form action="{{ url_for('logout') }}" method="post" class="ml-auto">
+          <button type="submit" class="btn btn-outline btn-sm border-white/40 text-white">Déconnexion</button>
+        </form>
       </div>
     </div>
 
@@ -73,7 +76,7 @@ function showBanner(html, kind){
   const banner = document.getElementById('withdrawMessageBanner');
   banner.className = 'card mb-4 ' + (kind === 'error' ? 'border-red-500' : 'border-[var(--gold)]');
   banner.style.borderWidth = '1px';
-  banner.innerHTML = html;
+  banner.textContent = html;
   banner.classList.remove('hidden');
   banner.scrollIntoView({behavior:'smooth'});
   setTimeout(() => banner.classList.add('hidden'), 10000);
@@ -86,9 +89,9 @@ async function submitWithdraw(e){
   try{
     const res = await fetch('/api/withdraw', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
     const result = await res.json();
-    if(result.error){ showBanner(`<strong>Erreur :</strong> ${result.error}`, 'error'); return; }
+    if(result.error){ showBanner(`Erreur : ${result.error}`, 'error'); return; }
     hideWithdrawModal();
-    showBanner(`<strong>Retrait enregistré —</strong> ${result.message}`, 'success');
+    showBanner(`Retrait enregistré — ${result.message}`, 'success');
     setTimeout(() => location.reload(), 3000);
   } catch(e){
     showBanner('<strong>Erreur réseau :</strong> réessayez plus tard.', 'error');

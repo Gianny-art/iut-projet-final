@@ -5,12 +5,16 @@ Lancer le site en local :
   1. python -m venv venv
   2. source venv/bin/activate  (ou venv\Scripts\activate sous Windows)
   3. pip install -r requirements.txt
-  4. cp .env.example .env  puis remplir au minimum SECRET_KEY et ADMIN_PASSWORD
+    4. Copier .env.example vers .env, générer une clé avec
+      python -c "import secrets; print(secrets.token_hex(32))"
+      puis définir SECRET_KEY et ADMIN_PASSWORD avant le premier lancement.
   5. python app.py
   6. Ouvrir http://127.0.0.1:5000 (ou le port affiché dans le terminal)
 
 Compte admin :
   - Défini par ADMIN_PASSWORD dans .env au tout premier lancement (identifiant "admin").
+  - L'application refuse de démarrer sans SECRET_KEY; aucune clé ou aucun compte
+    étudiant de démonstration n'est créé par défaut.
   - Aller sur /admin pour gérer les matchs, /admin/payments, /admin/withdrawals,
     /admin/users, /admin/promotions et /admin/settings.
 
@@ -23,6 +27,17 @@ Paiements (Campay / Maviance) :
   - Vérifiez les noms de champs exacts contre la documentation officielle de
     chaque fournisseur avant la mise en production (voir commentaires dans
     payments/campay.py et payments/maviance.py).
+  - Configurez CAMPAY_WEBHOOK_KEY avant d'accepter les callbacks Campay.
+    Les mutations des formulaires et de l'API sont protégées par jeton CSRF.
+
+Pronostics gratuits :
+  - Chaque étudiant connecté peut enregistrer un pronostic 1 / X / 2 sur un
+    match à venir. Une bonne réponse rapporte 3 points au classement campus;
+    cette ligue n'utilise pas le portefeuille.
+
+Tests :
+  - Lancer python -m unittest discover -s tests -v.
+  - Les tests utilisent une base SQLite temporaire et ne modifient pas data/iutbet.db.
 
 Application Android (APK) :
   - Le dossier android/ est un projet Capacitor déjà généré et configuré

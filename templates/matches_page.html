@@ -27,8 +27,12 @@
 const sportIcons = {Football:'fa-futbol', Basketball:'fa-basketball', Volleyball:'fa-volleyball', Handball:'fa-hand-fist'};
 const sportClass = {Football:'football', Basketball:'basketball', Volleyball:'volleyball', Handball:'handball'};
 let currentDiscipline = getQueryParam('discipline');
-let currentStatus = '';
+let currentStatus = getQueryParam('status');
 const currentCompetition = getQueryParam('competition');
+
+function escapeHtml(value){
+  return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+}
 
 function getQueryParam(name){
   return new URLSearchParams(window.location.search).get(name) || '';
@@ -46,9 +50,18 @@ async function loadMatches() {
   if (currentDiscipline) params.append('discipline', currentDiscipline);
   if (currentStatus) params.append('status', currentStatus);
   if (currentCompetition) params.append('competition', currentCompetition);
-  const res = await fetch('/api/matches?' + params.toString());
-  const matches = await res.json();
   const list = document.getElementById('matches-list');
+  list.setAttribute('aria-live', 'polite');
+  list.innerHTML = '<div class="empty-state">Chargement des matchs…</div>';
+  let matches;
+  try {
+    const res = await fetch('/api/matches?' + params.toString());
+    if(!res.ok) throw new Error('request failed');
+    matches = await res.json();
+  } catch(e) {
+    list.textContent = 'Impossible de charger les matchs. Réessayez.';
+    return;
+  }
   list.innerHTML = '';
   if(!matches.length){
     list.innerHTML = '<div class="empty-state"><i class="fas fa-calendar-xmark"></i>Aucun match trouvé pour ce filtre.</div>';
@@ -61,18 +74,18 @@ async function loadMatches() {
     const icon = sportIcons[m.discipline] || 'fa-futbol';
     const cls = sportClass[m.discipline] || 'football';
     const banner = m.image
-      ? `<div class="sport-banner" style="width:4.5rem;height:4.5rem;margin-bottom:0;flex-shrink:0;background-image:url('/uploads/${m.image}');background-size:cover;background-position:center"></div>`
+      ? `<div class="sport-banner" style="width:4.5rem;height:4.5rem;margin-bottom:0;flex-shrink:0;background-image:url('/uploads/${escapeHtml(m.image)}');background-size:cover;background-position:center"></div>`
       : `<div class="sport-banner ${cls}" style="width:4.5rem;height:4.5rem;margin-bottom:0;flex-shrink:0"><i class="fas ${icon}"></i></div>`;
     el.innerHTML = `
       <div class="flex gap-3">
         ${banner}
         <div class="flex-1 min-w-0">
           <div class="flex items-center justify-between mb-1">
-            <span class="text-xs text-[var(--text-muted)] truncate">${m.competition}</span>
+            <span class="text-xs text-[var(--text-muted)] truncate">${escapeHtml(m.competition)}</span>
             ${statusBadge(m)}
           </div>
-          <div class="font-bold truncate">${m.team_a} <span class="text-[var(--text-muted)] font-normal">vs</span> ${m.team_b}</div>
-          <div class="text-xs text-[var(--text-muted)] mt-1" data-match-time="${m.start_time}" data-match-disc="${m.discipline}">Chargement…</div>
+          <div class="font-bold truncate">${escapeHtml(m.team_a)} <span class="text-[var(--text-muted)] font-normal">vs</span> ${escapeHtml(m.team_b)}</div>
+          <div class="text-xs text-[var(--text-muted)] mt-1" data-match-time="${escapeHtml(m.start_time)}" data-match-disc="${escapeHtml(m.discipline)}">Chargement…</div>
           ${m.status === 'finished' ? `<div class="text-sm mt-1 font-bold">Score final : ${m.score_a} - ${m.score_b}</div>` : `
           <div class="odds-row mt-2">
             <div class="odds-btn"><span class="label">1</span><span class="value">${Number(m.odds_a).toFixed(2)}</span></div>
@@ -126,6 +139,9 @@ document.addEventListener('DOMContentLoaded', () => {
   } else {
     document.querySelector('#discipline-chips .chip').classList.add('active');
   }
+  document.querySelectorAll('#status-chips .chip').forEach(chip => {
+    chip.classList.toggle('active', chip.dataset.value === currentStatus);
+  });
   wireChips('discipline-chips', v => currentDiscipline = v);
   wireChips('status-chips', v => currentStatus = v);
   loadMatches();
