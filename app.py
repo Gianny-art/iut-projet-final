@@ -35,7 +35,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
 if not app.secret_key:
-    raise RuntimeError('SECRET_KEY must be configured before starting IUT Bet.')
+    raise RuntimeError('SECRET_KEY must be configured before starting ManyBet.')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 4 * 1024 * 1024  # 4MB limit
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -189,6 +189,7 @@ def ensure_schema():
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(user_id, match_id)
     );""")
+    c.execute("UPDATE promotions SET title='Bienvenue sur ManyBet' WHERE title='Bienvenue sur IUT Bet'")
 
     # Additive column migrations for DBs created before these existed.
     def add_column(table, coldef):
@@ -249,7 +250,7 @@ def seed_matches(c):
 def seed_promotions(c):
     c.execute("""INSERT INTO promotions (title, subtitle, image, link, active, sort_order)
                  VALUES (?, ?, ?, ?, 1, 1)""",
-              ("Bienvenue sur IUT Bet", "Pariez sur les matchs de votre campus", "paris1.jpg", "/matches"))
+              ("Bienvenue sur ManyBet", "Pronostique les matchs de ton campus", "paris1.jpg", "/matches"))
     c.execute("""INSERT INTO promotions (title, subtitle, image, link, active, sort_order)
                  VALUES (?, ?, ?, ?, 1, 2)""",
               ("Championnat Inter-Filières", "Football, Basketball, Volleyball, Handball", "lige.jpeg", "/competitions"))

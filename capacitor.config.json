@@ -1,6 +1,6 @@
 {
   "appId": "cm.iutbet.app",
-  "appName": "IUT Bet",
+  "appName": "ManyBet",
   "webDir": "www",
   "server": {
     "url": "https://gianny.pythonanywhere.com",

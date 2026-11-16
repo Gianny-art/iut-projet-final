@@ -76,7 +76,7 @@ class CampayProvider(PaymentProvider):
                 'amount': str(int(amount)),
                 'currency': 'XAF',
                 'from': self._normalize_phone(phone),
-                'description': 'Depot IUT Bet',
+                'description': 'Depot ManyBet',
                 'external_reference': external_ref,
             }
             resp = requests.post(
@@ -100,7 +100,7 @@ class CampayProvider(PaymentProvider):
                 'amount': str(int(amount)),
                 'currency': 'XAF',
                 'to': self._normalize_phone(phone),
-                'description': 'Retrait IUT Bet',
+                'description': 'Retrait ManyBet',
                 'external_reference': external_ref,
             }
             resp = requests.post(

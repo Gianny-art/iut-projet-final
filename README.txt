@@ -1,4 +1,4 @@
-IUT Bet — Flask + SQLite backend, Android app via Capacitor
+ManyBet — Flask + SQLite backend, Android app via Capacitor
 =============================================================
 
 Lancer le site en local :
@@ -41,7 +41,7 @@ Tests :
 
 Application Android (APK) :
   - Le dossier android/ est un projet Capacitor déjà généré et configuré
-    (icône, splash, nom "IUT Bet", package cm.iutbet.app) qui charge le site
+    (icône, splash, nom "ManyBet", package cm.iutbet.app) qui charge le site
     en ligne (capacitor.config.json > server.url).
   - Pour obtenir le fichier .apk :
       1. Installer Android Studio (https://developer.android.com/studio).
@@ -54,7 +54,7 @@ Application Android (APK) :
     https://capacitorjs.com/docs/android/deploying-to-google-play
   - Si l'URL du site change, mettre à jour "server.url" dans
     capacitor.config.json puis relancer `npx cap sync android`.
-  - Pour régénérer icône/splash après avoir modifié assets/logo.png :
+  - Pour régénérer icône/splash et image de partage après avoir modifié assets/logo.png :
     `npm run gen:assets`.
 
 Notes :

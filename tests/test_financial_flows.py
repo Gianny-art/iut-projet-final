@@ -67,6 +67,17 @@ class FinancialFlowTests(unittest.TestCase):
         self.assertIn(b'Pronostic gratuit', response.data)
         self.assertIn(b'name="csrf-token"', response.data)
 
+    def test_share_preview_metadata_and_image_are_available(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'og:site_name" content="ManyBet', response.data)
+        self.assertIn(b'og:image" content="http://localhost/static/uploads-app/manybet-share.png', response.data)
+        self.assertIn(b'Suis les matchs du campus', response.data)
+        image = self.client.get('/static/uploads-app/manybet-share.png')
+        self.assertEqual(image.status_code, 200)
+        self.assertEqual(image.mimetype, 'image/png')
+        image.close()
+
     def test_correct_free_prediction_awards_three_points_once(self):
         response = self.client.post('/api/predictions', json={
             'match_id': self.match_id,

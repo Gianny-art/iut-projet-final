@@ -2,7 +2,7 @@
   "name": "iut-bet-android",
   "version": "1.0.0",
   "private": true,
-  "description": "IUT Bet — Android wrapper (Capacitor) for the Flask web app.",
+  "description": "ManyBet — Android wrapper (Capacitor) for the Flask web app.",
   "scripts": {
     "gen:assets": "node scripts/generate-assets.js && npx capacitor-assets generate --android",
     "android:sync": "npx cap sync android",

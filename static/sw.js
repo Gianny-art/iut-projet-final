@@ -1,4 +1,4 @@
-const CACHE = 'iutbet-static-v1';
+const CACHE = 'manybet-static-v2';
 const STATIC_ASSETS = [
   '/static/css/app.css',
   '/static/uploads-app/icon-192.png',

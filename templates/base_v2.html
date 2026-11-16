@@ -3,9 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="description" content="IUT Bet — la plateforme de pronostics sportifs des étudiants de l'IUT. Football, Basketball, Volleyball, Handball : pariez sur les matchs de votre campus.">
+  <meta name="description" content="ManyBet — suis les matchs du campus, partage tes pronostics et retrouve le classement de ta communauté sportive.">
   <meta name="csrf-token" content="{{ csrf_token }}">
-  <title>{% block title %}IUT Bet — Pronostics sportifs du campus{% endblock %}</title>
+  <meta name="application-name" content="ManyBet">
+  <title>{% block title %}ManyBet — Pronostics sportifs du campus{% endblock %}</title>
+  <link rel="canonical" href="{{ request.base_url }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads-app/icon-192.png') }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="ManyBet">
+  <meta property="og:title" content="ManyBet — Pronostics sportifs du campus">
+  <meta property="og:description" content="Suis les matchs du campus, partage tes pronostics et retrouve le classement de ta communauté sportive.">
+  <meta property="og:url" content="{{ request.base_url }}">
+  <meta property="og:image" content="{{ url_for('static', filename='uploads-app/manybet-share.png', _external=True) }}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="ManyBet — pronostics sportifs du campus">
+  <meta property="og:locale" content="fr_CM">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="ManyBet — Pronostics sportifs du campus">
+  <meta name="twitter:description" content="Suis les matchs du campus, partage tes pronostics et retrouve le classement de ta communauté sportive.">
+  <meta name="twitter:image" content="{{ url_for('static', filename='uploads-app/manybet-share.png', _external=True) }}">
 
   <link rel="manifest" href="{{ url_for('webmanifest') }}">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -24,7 +41,7 @@
     <div class="flex items-center justify-between px-4 py-3">
       <a href="{{ url_for('index') }}" class="text-xl font-extrabold tracking-tight flex items-center gap-1">
         <i class="fas fa-shield-halved text-yellow-300"></i>
-        IUT <span class="text-yellow-300">BET</span>
+        MANY<span class="text-yellow-300">BET</span>
       </a>
       {% if session.get('user') %}
         <div class="flex items-center gap-2">
@@ -171,7 +188,7 @@
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": "IUT Bet",
+    "name": "ManyBet",
     "url": "https://gianny.pythonanywhere.com",
     "description": "Plateforme de pronostics sportifs entre étudiants de l'IUT (football, basketball, volleyball, handball). Les dépôts et retraits se font en argent réel via Mobile Money."
   }

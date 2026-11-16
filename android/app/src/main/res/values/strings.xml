@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">IUT Bet</string>
-    <string name="title_activity_main">IUT Bet</string>
+    <string name="app_name">ManyBet</string>
+    <string name="title_activity_main">ManyBet</string>
     <string name="package_name">cm.iutbet.app</string>
     <string name="custom_url_scheme">cm.iutbet.app</string>
 </resources>

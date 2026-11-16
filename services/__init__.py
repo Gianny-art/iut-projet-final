@@ -1,1 +1,1 @@
-"""Domain services for IUT Bet."""
+"""Domain services for ManyBet."""

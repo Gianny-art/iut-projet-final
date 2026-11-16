@@ -1,7 +1,7 @@
 {
-  "name": "IUT Bet",
-  "short_name": "IUT Bet",
-  "description": "Pronostics sportifs entre étudiants de l'IUT — football, basketball, volleyball, handball.",
+  "name": "ManyBet",
+  "short_name": "ManyBet",
+  "description": "Pronostics sportifs, matchs et classement de ta communauté de campus.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0e17",
